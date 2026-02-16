@@ -1500,7 +1500,9 @@ Generate approximately {TOKENS_TO_GENERATE} tokens that naturally continue the n
 
 const DEFAULT_USER_PROMPT = `Here is the story so far:\n\n{RECENT_TEXT}\n\nPlease continue the story naturally from where it left off.`;
 
-const DEFAULT_AIISMS = `absolutely
+const DEFAULT_AIISMS = `## Commonly used words:
+
+absolutely
 abyssal
 affection
 aftermath
@@ -1808,6 +1810,9 @@ weight
 whimsical
 whisper
 yearning
+
+## Commonly used adverbs:
+
 angrily
 anxiously
 barely above a whisper
@@ -1866,6 +1871,238 @@ warily
 warmly
 wickedly
 wistfully
+
+## Commonly mentioned character names:
+
+Blackwood
+Brady
+Chen
+Elara
+Elena
+Emily
+Evans
+Henderson
+Lily
+Marcus
+Martinez
+Nakamura
+Patel
+Rodriguez
+Sarah
+Thompson
+Lyra
+
+**Female Names (English Bias)**
+
+Aria
+Luna
+Maya
+Zara
+Nora
+Iris
+Jade
+Ruby
+Sage
+Willow
+Aurora
+Celeste
+Evelyn
+Grace
+Hope
+Faith
+Jasmine
+Rose
+Violet
+Chloe
+Emma
+Olivia
+Sophia
+Isabella
+
+**Male Names (English Bias)**
+
+Ethan
+Noah
+Liam
+Alexander
+Alex
+Benjamin
+Ben
+Daniel
+Dan
+Michael
+Mike
+David
+James
+Robert
+William
+Thomas
+Ryan
+Nathan
+Adrian
+Julian
+Sebastian
+Gabriel
+Lucas
+Owen
+Kai
+Phoenix
+
+**Surnames (US Bias)**
+
+Johnson
+Williams
+Brown
+Davis
+Miller
+Wilson
+Moore
+Taylor
+Anderson
+Jackson
+White
+Harris
+Martin
+Garcia
+Lewis
+Walker
+Hall
+Young
+King
+Wright
+Lopez
+Hill
+Green
+Adams
+Baker
+Clark
+Turner
+
+**Non-English Bias Names**
+
+Akira
+Hiroshi
+Yuki
+Wei
+Li
+Zhang
+Wang
+Raj
+Priya
+Arjun
+Giovanni
+Marco
+Sofia
+Pierre
+Marie
+Antoine
+Klaus
+Hans
+Greta
+
+### Fantasy
+
+**Female**
+
+Seraphina
+Evangeline
+Isolde
+Morgana
+Raven
+Ember
+Rowan
+Astrid
+Freya
+Kira
+Nyx
+Vex
+Thalia
+Stella
+Nova
+Orion
+Fae
+Faye
+Rhea
+Vera
+Mira
+
+**Male**
+
+Zane
+Dante
+Kieran
+Damien
+Lucian
+Ashton
+Damon
+Theron
+Maximus
+Cassius
+Aurelius
+Darian
+Zephyr
+Atlas
+Asher
+
+**Surnames**
+
+Nightshade
+Ravencrest
+Shadowmere
+Thornfield
+Darkbane
+Stormbringer
+Ironwood
+Goldleaf
+Silverstone
+Ashford
+Lockwood
+Greystone
+Whitmore
+Blackthorne
+
+### Romance
+
+**Female**
+
+Scarlett
+Vivian
+Anastasia
+Gabriella
+Samantha
+
+**Male**
+
+Dominic
+Nathaniel
+Maximilian
+Christian
+Aiden
+Jaxon
+Knox
+Ryder
+Hunter
+Cole
+Blake
+Steele
+Cross
+Stone
+Grey
+Gray
+Enzo
+Luca
+
+**Surnames**
+
+Fox
+Wolf
+Powers
+Strong
+
+## General
+
+**Overused descriptive language:**
+
 her breath caught in her throat
 his eyes darkened
 her eyes sparkled
@@ -1879,6 +2116,9 @@ his heart pounded in his chest
 he let out a breath he didn't know he was holding
 a flush crept up her neck
 a flush crept up her cheeks
+
+**Character interaction clichés:**
+
 what are you doing to me?
 i can't stay away from you
 you're going to be the death of me
@@ -1887,12 +2127,18 @@ this is insane
 we shouldn't be doing this
 tell me to stop
 stop me
+
+**Scene-setting phrases:**
+
 the air was thick with tension
 silence stretched between them
 the room crackled with electricity
 shadows danced across the walls
 moonlight filtered through the windows
 dawn broke over the horizon
+
+**Emotional beats that repeat:**
+
 a single tear rolled down her cheek
 his jaw clenched
 her fists clenched
@@ -1901,10 +2147,18 @@ fire ignited in her eyes
 ice ran through his veins
 ice ran through her veins
 butterflies erupted in her stomach
+
+**Plot device phrases:**
+
 little did she know
 if only she had known
 what she didn't realize was
 unbeknownst to her
+
+### Fantasy
+
+**World-building clichés:**
+
 ancient magic coursed through her veins
 the blade hummed with power
 magic crackled in the air
@@ -1913,6 +2167,9 @@ shadows seemed to writhe and move
 the castle loomed in the distance
 mist clung to the mountains
 stars wheeled overhead
+
+**Magic system repetition:**
+
 power thrummed beneath her skin
 energy pulsed through the crystal
 the spell wove itself around
@@ -1921,6 +2178,9 @@ fire danced at his fingertips
 the ward shimmered and fell
 ancient words of power
 the veil between worlds grew thin
+
+**Character descriptions:**
+
 eyes like molten gold
 eyes like molten silver
 eyes like emeralds
@@ -1931,6 +2191,9 @@ otherworldly grace
 ancient wisdom in young eyes
 pointed ears
 lithe and graceful
+
+**Prophecy and destiny language:**
+
 the chosen one
 ancient prophecy foretold
 destiny called to her
@@ -1939,6 +2202,9 @@ as it was written
 the time of reckoning approaches
 balance must be restored
 dark forces stirred
+
+**Combat and conflict:**
+
 steel sang against steel
 his blade found its mark
 she moved like liquid shadow
@@ -1946,17 +2212,28 @@ the clash of weapons rang out
 battle-hardened warrior
 years of training guided her movements
 he fought with the fury of
+
+**Setting atmospherics:**
+
 the tavern fell silent
 torchlight flickered on stone walls
 ancient runes glowed softly
 the throne room echoed with footsteps
 cobwebs draped the forgotten chamber
 ivy crept up the tower walls
+
+**Magic consequences:**
+
 the spell drained her strength
 magic always came with a price
 power corrupts
 the cost was too great
 balance in all things
+
+### Thrillerish
+
+**Detective/investigator descriptions:**
+
 world-weary detective
 haunted by past cases
 three-day stubble
@@ -1966,6 +2243,9 @@ cigarette dangled from his lips
 eyes that had seen too much
 badge felt heavy in his pocket
 one case away from retirement
+
+**Crime scene language:**
+
 the body was discovered at dawn
 blood pooled on the concrete
 chalk outline marked the spot
@@ -1974,6 +2254,9 @@ the scene was cordoned off
 forensics swept the area
 no signs of forced entry
 the victim's eyes stared sightlessly
+
+**Atmospheric clichés:**
+
 rain drummed against the windows
 neon lights reflected in puddles
 the city never sleeps
@@ -1982,6 +2265,9 @@ fog rolled in from the harbor
 street lamps cast eerie glows
 the neighborhood had seen better days
 silence hung heavy in the air
+
+**Investigation repetition:**
+
 following a lead
 the pieces didn't add up
 something didn't sit right
@@ -1990,6 +2276,9 @@ connect the dots
 the trail went cold
 back to square one
 a break in the case
+
+**Villain/criminal language:**
+
 cold, calculating eyes
 a smile that didn't reach his eyes
 ice water in his veins
@@ -1998,6 +2287,9 @@ always one step ahead
 left no loose ends
 a ghost in the system
 vanished without a trace
+
+**Dialogue patterns:**
+
 you're in over your head
 this goes deeper than you think
 you don't know what you're dealing with
@@ -2005,6 +2297,9 @@ walk away while you still can
 it's not what it looks like
 trust no one
 the truth is out there
+
+**Action sequences:**
+
 adrenaline coursed through his veins
 heart pounding in his chest
 time slowed to a crawl
@@ -4933,11 +5228,50 @@ function refreshAIismHighlights() {
     const currentDoc = documents.find(d => d.id === currentDocumentId);
     if (!currentDoc || currentDoc.type !== 'Chapter') return;
     
-    // Get AI-isms list
+    // Get AI-isms list and parse it properly
     const aiismsText = settings.aiismsList || DEFAULT_AIISMS;
-    const aiisms = aiismsText.split('\n')
-        .map(line => line.trim())
-        .filter(line => line.length > 0);
+    const aiisms = [];
+    
+    aiismsText.split('\n').forEach(line => {
+        line = line.trim();
+        
+        // Skip empty lines
+        if (line.length === 0) return;
+        
+        // Skip markdown headings (lines starting with #)
+        if (line.startsWith('#')) return;
+        
+        // Skip lines that are entirely bold (**text** or __text__)
+        if (/^\*\*[^*]+\*\*$/.test(line)) return;
+        if (/^__[^_]+__$/.test(line)) return;
+        
+        // Remove leading hyphen/dash and whitespace (for list items like "- word")
+        line = line.replace(/^[-–—]\s*/, '');
+        
+        // If line contains commas, split by comma
+        if (line.includes(',')) {
+            const items = line.split(',').map(item => item.trim());
+            items.forEach(item => {
+                if (item.length > 0) {
+                    // Remove quotes around the item
+                    item = item.replace(/^[""](.+)[""]$/, '$1');
+                    item = item.replace(/^"(.+)"$/, '$1');
+                    aiisms.push(item);
+                }
+            });
+        } else {
+            // Single item - remove quotes if present
+            line = line.replace(/^[""](.+)[""]$/, '$1');
+            line = line.replace(/^"(.+)"$/, '$1');
+            
+            // Remove parenthetical explanations like "(usually whispered)"
+            line = line.replace(/\s*\([^)]+\)\s*$/, '');
+            
+            if (line.length > 0) {
+                aiisms.push(line);
+            }
+        }
+    });
     
     if (aiisms.length === 0) return;
     
