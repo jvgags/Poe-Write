@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poe Write</title>
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🪶</text></svg>">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,400;0,700;1,400&family=Lato:ital,wght@0,400;0,700;1,400&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+    
+    <!-- CodeMirror 5 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/material.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/dracula.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/markdown/markdown.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/continuelist.min.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+
+    <script>
+        (function () {
+            const savedTheme = localStorage.getItem('poeTheme');
+            if (savedTheme && savedTheme !== 'default') {
+                document.documentElement.setAttribute('data-theme', savedTheme);
+            }
+        })();
+    </script>
+</head>
+
+<body>
+    <!-- Toast Notification -->
+    <div id="toast"></div>
+
+    <!-- API Key Modal -->
+    <div id="apiKeyModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3>Welcome to Poe Write</h3>
+            <p>Enter your OpenRouter API key to enable AI writing assistance:</p>
+            <input type="password" id="apiKeyInput" placeholder="sk-or-...">
+            <p style="font-size:13px; color:#666;">
+                <strong>Get your API key:</strong> <a href="https://openrouter.ai/keys"
+                    target="_blank">openrouter.ai/keys</a><br>
+                Your key is encrypted and stored locally.
+            </p>
+            <div class="modal-buttons">
+                <button onclick="setApiKey()" class="primary-btn">Save & Continue</button>
+                <button onclick="skipApiKey()" class="secondary-btn">Skip (Write Only)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Bar -->
+    <div id="top-bar">
+        <div class="hamburger" id="hamburger">
+            <span></span><span></span><span></span>
+        </div>
+        <h1>🪶 Poe Write</h1>
+        <div class="word-count-display">
+            <span id="wordCount">0</span> words
+        </div>
+    </div>
+
+    <!-- Menu Overlay -->
+    <div id="menuOverlay" class="menu-overlay"></div>
+
+    <!-- Left Menu -->
+    <nav id="menu" class="menu">
+        <button onclick="openNewProjectModal(); closeMenu()">📝 New Project</button>
+        <button onclick="createBackup(); closeMenu()">💾 Export Backup</button>
+        <button onclick="exportProjectToMarkdown()">📚 Export Book (Markdown)</button>
+        <label class="file-input-label">
+            <input type="file" id="restoreFile" accept=".poe" onchange="restoreFromBackup(this.files[0])"
+                style="display:none;">
+            📥 Import Backup
+        </label>
+        <div class="sync-section" style="padding: 15px; border-top: 1px solid var(--border-color);">
+            <h4 style="margin-bottom:10px; font-size: 0.8rem; color: var(--text-tertiary); text-transform: uppercase;">Cloud Sync</h4>
+            <div id="syncIndicator" style="font-size: 11px; color: var(--text-secondary); margin-bottom: 12px; min-height: 14px;"></div>
+            
+            <button onclick="saveToCloud()" class="primary-btn" style="width:100%; margin-bottom:10px;">
+                ☁️ Save to Google Drive
+            </button>
+            
+            <button onclick="loadFromCloud()" class="secondary-btn" style="width:100%;">
+                🔄 Load from Google Drive
+            </button>
+        </div>
+        <button onclick="openSettingsModal(); closeMenu()">⚙️ Settings</button>
+        <button onclick="openAboutModal(); closeMenu()">ℹ️ About</button>
+    </nav>
+
+    <!-- Main Content -->
+    <div id="main-content">
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('write')">✏️ Write</button>
+            <button class="tab-btn" onclick="switchTab('projects')">📖 Projects</button>
+        </div>
+
+        <!-- Write Tab -->
+        <div id="write-tab" class="tab-content active">
+            <div class="editor-layout-new">
+                <!-- Left Sidebar - Documents & AI -->
+                <aside class="sidebar-panel">
+                    <div class="sidebar-header">
+                        <select id="projectSelect" onchange="switchProject()">
+                            <option value="">No Project Selected</option>
+                        </select>
+                        <button class="icon-btn" onclick="openNewDocumentModal()" title="New Document">➕</button>
+                    </div>
+
+                    <div class="documents-master-toggle">
+                        <label class="toggle-container master-toggle">
+                            <input type="checkbox" id="masterDocumentToggle" onchange="toggleAllDocuments()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span class="master-toggle-label">Enable All</span>
+                    </div>
+
+                    <!-- Sidebar Tabs -->
+                    <div class="sidebar-tabs">
+                        <button class="sidebar-tab-btn active" onclick="switchSidebarTab('documents')">📄 Documents</button>
+                        <button class="sidebar-tab-btn" onclick="switchSidebarTab('chat')">💬 Chat</button>
+                    </div>
+
+                    <!-- Documents Tab -->
+                    <div id="sidebar-documents-tab" class="sidebar-tab-content active">
+                        <div id="documentsList" class="documents-list"></div>
+                    </div>
+
+                    <!-- Chat Tab -->
+                    <div id="sidebar-chat-tab" class="sidebar-tab-content">
+                        <div class="chat-container">
+                            <div class="chat-header">
+                                <h4>💬 Chat with Poe</h4>
+                                <button class="icon-btn small-icon-btn" onclick="clearChatHistory()" title="Clear Chat">🗑️</button>
+                            </div>
+                            <div id="chatMessages" class="chat-messages"></div>
+                            <div class="chat-input-container">
+                                <textarea id="chatInput" placeholder="Ask Poe anything about your story..." rows="3"></textarea>
+                                <button class="chat-send-btn" onclick="sendChatMessage()">
+                                    <span>Send</span>
+                                    <span class="send-icon">📤</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Hidden AI Elements (used by code but not displayed in sidebar) -->
+                    <div style="display: none;">
+                        <textarea id="contextNotes"></textarea>
+                        <div id="aiOutput">
+                            <div id="aiOutputContent"></div>
+                        </div>
+                    </div>
+                </aside>
+
+                <!-- Editor Section -->
+                <section class="editor-panel-new">
+                    <div class="document-info" id="documentInfo" style="display:none;">
+                        <div class="document-info-header">
+                            <div>
+                                <span class="document-type-badge" id="documentType">Document</span>
+                                <h2 id="documentTitle">Document Title</h2>
+                            </div>
+                            <div class="document-meta">
+                                <span id="documentWordCount">0 words</span>
+                            </div>
+                        </div>
+                    </div>
+
+                   
+                    <div id="searchReplaceBar" class="search-replace-bar" style="display:none;">
+                        <div class="search-inputs">
+                            <input type="text" id="findInput" placeholder="Find..." oninput="updateSearchCount()">
+                            <span class="search-count" id="searchCount"></span>
+                            <input type="text" id="replaceInput" placeholder="Replace with...">
+                        </div>
+                        <div class="search-actions">
+                            <button onclick="findNext()" title="Find Next">↓</button>
+                            <button onclick="findPrev()" title="Find Previous">↑</button>
+                            <button onclick="replaceCurrent()">Replace</button>
+                            <button onclick="replaceAll()">Replace All</button>
+                            <button class="close-search" onclick="toggleSearchReplace()">✕</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Markdown Toolbar -->
+                    <div class="markdown-toolbar-sleek">
+                        <div class="toolbar-section">
+                            <button class="tb-btn" onclick="insertMarkdown('bold')" title="Bold (Ctrl+B)">B</button>
+                            <button class="tb-btn tb-italic" onclick="insertMarkdown('italic')" title="Italic (Ctrl+I)">I</button>
+                            <button class="tb-btn tb-strike" onclick="insertMarkdown('strikethrough')" title="Strikethrough">S</button>
+                            <div class="toolbar-divider-sleek"></div>
+                            <div class="tb-highlight-group">
+                                <button class="tb-btn tb-icon" onclick="insertMarkdown('highlight')" title="Highlight">🖍️</button>
+                                <input type="color" id="highlightColorPicker" class="highlight-color-picker" value="#fff59d" title="Choose highlight color">
+                                <button class="tb-btn tb-icon" onclick="removeHighlight()" title="Remove Highlight">🚫</button>
+                            </div>
+                        </div>
+                        
+                        <div class="toolbar-divider-sleek"></div>
+                        
+                        <div class="toolbar-section">
+                            <button class="tb-btn" onclick="insertMarkdown('h1')" title="Heading 1">H1</button>
+                            <button class="tb-btn" onclick="insertMarkdown('h2')" title="Heading 2">H2</button>
+                            <button class="tb-btn" onclick="insertMarkdown('h3')" title="Heading 3">H3</button>
+                        </div>
+                        
+                        <div class="toolbar-divider-sleek"></div>
+                        
+                        <div class="toolbar-section">
+                            <button class="tb-btn tb-icon" onclick="insertMarkdown('link')" title="Link">🔗</button>
+                            <button class="tb-btn tb-icon" onclick="insertMarkdown('image')" title="Image">🖼️</button>
+                        </div>
+                        
+                        <div class="toolbar-divider-sleek"></div>
+                        
+                        <div class="toolbar-section">
+                            <button class="tb-btn" onclick="insertMarkdown('code')" title="Inline Code">&lt;&gt;</button>
+                            <button class="tb-btn" onclick="insertMarkdown('codeblock')" title="Code Block">&lt;/&gt;</button>
+                        </div>
+                        
+                        <div class="toolbar-divider-sleek"></div>
+                        
+                        <div class="toolbar-section">
+                            <button class="tb-btn" onclick="insertMarkdown('quote')" title="Quote">"</button>
+                        </div>
+                        
+                        <div class="toolbar-divider-sleek"></div>
+                        
+                        <div class="toolbar-section">
+                            <button class="tb-btn" onclick="insertMarkdown('ul')" title="Bullet List">≡</button>
+                            <button class="tb-btn" onclick="insertMarkdown('ol')" title="Numbered List">≣</button>
+                            <button class="tb-btn" onclick="insertMarkdown('checkbox')" title="Checklist">☑</button>
+                        </div>
+                        
+                        <div class="toolbar-divider-sleek"></div>
+                        
+                        <div class="toolbar-section">
+                            <button class="tb-btn tb-icon" onclick="saveDocument()" title="Save">💾</button>
+                            <button class="tb-btn tb-icon" onclick="insertMarkdown('hr')" title="Divider">―</button>
+                            <button class="tb-btn tb-icon" onclick="insertMarkdown('table')" title="Table">▦</button>
+                        </div>
+                        
+                        <div class="toolbar-divider-sleek"></div>
+                        
+                        <div class="toolbar-section">
+                            
+                            
+                            <button class="tb-btn tb-icon" onclick="switchEditorMode('markdown')" title="Markdown" id="markdownToggle">✏️</button>
+                            <button class="tb-btn tb-icon" onclick="switchEditorMode('preview')" title="Preview" id="previewToggle">👁</button>
+                            <button class="tb-btn tb-icon" onclick="toggleFullScreen()" title="Full Screen">⛶</button>
+                        </div>
+                        
+                        <div class="toolbar-divider-sleek"></div>
+                        
+                        <div class="toolbar-section">
+                            <button class="tb-btn tb-icon" onclick="toggleSearchReplace()" title="Find">🔍</button>
+                            <button class="tb-btn tb-icon" onclick="openSettingsModal()" title="Settings">⚙</button>
+                        </div>
+                    </div>
+                    
+                    <div class="editor-container-new">
+                        <div id="editor" style="display: block;"></div>
+                        <div id="preview" class="markdown-preview" style="display: none;"></div>
+                        
+                        <!-- Floating Continue Button -->
+                        <div id="floatingContinueBtn" class="floating-continue-btn" style="display:none;"
+                            onclick="continueFromCursor()">
+                            <span class="btn-text">✨ Continue from here</span>
+                            <span class="btn-spinner" style="display:none;">⏳ Generating...</span>
+                        </div>
+
+                        <!-- Floating GO Button -->
+                        <div id="floatingGoBtn" class="floating-go-btn" style="display:none;"
+                            onclick="startFromScratch()">
+                            <span class="btn-text">🚀 Go – Start writing</span>
+                            <span class="btn-spinner" style="display:none;">⭮ Generating...</span>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+        <!-- Projects Tab -->
+        <div id="projects-tab" class="tab-content">
+            <section class="card">
+                <h2>Your Projects</h2>
+                <button onclick="openNewProjectModal()" class="primary-btn" style="margin-bottom: 20px;">
+                    ➕ Create New Project
+                </button>
+                <div id="projectsList"></div>
+            </section>
+        </div>
+    </div>
+
+    <!-- New Project Modal -->
+    <div id="newProjectModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3>Create New Project</h3>
+            <form id="newProjectForm" onsubmit="createProject(event)">
+                <label>
+                    Project Title:
+                    <input type="text" id="newProjectTitle" placeholder="My Novel" required>
+                </label>
+                <label>
+                    Genre:
+                    <select id="newProjectGenre">
+                        <option value="Fiction">Fiction</option>
+                        <option value="Fantasy">Fantasy</option>
+                        <option value="Science Fiction">Science Fiction</option>
+                        <option value="Mystery">Mystery</option>
+                        <option value="Romance">Romance</option>
+                        <option value="Thriller">Thriller</option>
+                        <option value="Horror">Horror</option>
+                        <option value="Non-Fiction">Non-Fiction</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </label>
+                <label>
+                    Description:
+                    <textarea id="newProjectDescription" placeholder="Brief description of your project..."
+                        rows="3"></textarea>
+                </label>
+                <label>
+                    Target Word Count:
+                    <input type="number" id="newProjectWordCount" placeholder="50000" min="0" step="1000">
+                </label>
+                <div class="modal-buttons">
+                    <button type="submit" class="primary-btn">Create Project</button>
+                    <button type="button" onclick="closeNewProjectModal()" class="secondary-btn">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Project Modal -->
+    <div id="editProjectModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3>Edit Project</h3>
+            <form id="editProjectForm" onsubmit="updateProject(event)">
+                <input type="hidden" id="editProjectId">
+                <label>
+                    Project Title:
+                    <input type="text" id="editProjectTitle" placeholder="My Novel" required>
+                </label>
+                <label>
+                    Genre:
+                    <select id="editProjectGenre">
+                        <option value="Fiction">Fiction</option>
+                        <option value="Fantasy">Fantasy</option>
+                        <option value="Science Fiction">Science Fiction</option>
+                        <option value="Mystery">Mystery</option>
+                        <option value="Romance">Romance</option>
+                        <option value="Thriller">Thriller</option>
+                        <option value="Horror">Horror</option>
+                        <option value="Non-Fiction">Non-Fiction</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </label>
+                <label>
+                    Description:
+                    <textarea id="editProjectDescription" placeholder="Brief description of your project..."
+                        rows="3"></textarea>
+                </label>
+                <label>
+                    Target Word Count:
+                    <input type="number" id="editProjectWordCount" placeholder="50000" min="0" step="1000">
+                </label>
+                <div class="modal-buttons">
+                    <button type="submit" class="primary-btn">Save Changes</button>
+                    <button type="button" onclick="closeEditProjectModal()" class="secondary-btn">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- New Document Modal -->
+    <div id="newDocumentModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3 id="documentModalTitle">Create New Document</h3>
+            <form id="newDocumentForm" onsubmit="createDocument(event)">
+                <label>
+                    Document Title:
+                    <input type="text" id="newDocumentTitle" placeholder="Chapter 1: The Beginning" required>
+                </label>
+                <label>
+                    Document Type:
+                    <select id="newDocumentType">
+                        <option value="Chapter">Chapter</option>
+                        <option value="Instructions">Instructions</option>
+                        <option value="Synopsis">Synopsis</option>
+                        <option value="Writing Style">Writing Style</option>
+                        <option value="Characters">Characters</option>
+                        <option value="Locations">Locations</option>
+                        <option value="Worldbuilding">Worldbuilding</option>
+                        <option value="Plot">Plot</option>
+                        <option value="Research">Research</option>
+                        <option value="Notes">Notes</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </label>
+                <div class="modal-buttons">
+                    <button type="submit" class="primary-btn">Create Document</button>
+                    <button type="button" onclick="closeNewDocumentModal()" class="secondary-btn">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add this Edit Document Modal after the New Document Modal in your HTML -->
+
+    <!-- Edit Document Modal -->
+    <div id="editDocumentModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3>Edit Document</h3>
+            <form id="editDocumentForm" onsubmit="updateDocument(event)">
+                <input type="hidden" id="editDocumentId">
+                <label>
+                    Document Title:
+                    <input type="text" id="editDocumentTitle" placeholder="Chapter 1: The Beginning" required>
+                </label>
+                <label>
+                    Document Type:
+                    <select id="editDocumentType">
+                        <option value="Chapter">Chapter</option>
+                        <option value="Instructions">Instructions</option>
+                        <option value="Synopsis">Synopsis</option>
+                        <option value="Writing Style">Writing Style</option>
+                        <option value="Characters">Characters</option>
+                        <option value="Locations">Locations</option>
+                        <option value="Worldbuilding">Worldbuilding</option>
+                        <option value="Plot">Plot</option>
+                        <option value="Research">Research</option>
+                        <option value="Notes">Notes</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </label>
+                <div class="modal-buttons">
+                    <button type="submit" class="primary-btn">Save Changes</button>
+                    <button type="button" onclick="closeEditDocumentModal()" class="secondary-btn">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Improve Text Modal -->
+    <div id="improveTextModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3>Improve Selected Text</h3>
+            <p>Add specific instructions for how to improve the selected text:</p>
+            <textarea id="improveInstructions" 
+                    placeholder="E.g., Make it more descriptive, Add more emotion, Simplify the language, etc." 
+                    rows="4"></textarea>
+            <div class="modal-buttons">
+                <button onclick="executeImprove()" class="primary-btn">✨ Improve</button>
+                <button onclick="closeImproveModal()" class="secondary-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal" style="display:none;">
+        <div class="modal-content settings-modal">
+            <div class="modal-header">
+                <h3>⚙️ Settings</h3>
+                <button onclick="closeSettingsModal()" class="close-btn">✕</button>
+            </div>
+
+            <!-- Settings Tabs -->
+            <div class="settings-tabs">
+                <button class="settings-tab-btn active" onclick="switchSettingsTab('appearance')">🎨 Appearance</button>
+                <button class="settings-tab-btn" onclick="switchSettingsTab('pym')">
+                    <svg class="tab-icon" version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+                        <path fill="currentColor" d="M0 0 C2.31 0 4.62 0 6.94 0 C8.23 0 9.51 0 10.84 0 C14 0 14 0 15 1 C16.35 1.23 17.7 1.41 19.06 1.56 C20.36 1.71 21.66 1.85 23 2 C23 2.66 23 3.32 23 4 C32.57 4 42.14 4 52 4 C52 4.66 52 5.32 52 6 C52.7 6.08 53.4 6.17 54.13 6.25 C57.69 7.18 60.09 8.77 63 11 C63 11.66 63 12.32 63 13 C63.66 13 64.32 13 65 13 C67.56 17.51 67.38 21.54 67.38 26.63 C67.38 27.52 67.38 28.42 67.38 29.34 C67.27 35.86 66.36 41.3 63 47 C64.98 46.67 66.96 46.34 69 46 C68.35 49.52 67.49 52.89 66.44 56.31 C66.17 57.2 65.9 58.08 65.62 58.99 C65.42 59.65 65.21 60.32 65 61 C64.34 61 63.68 61 63 61 C62.89 61.59 62.79 62.17 62.68 62.77 C61.9 65.31 60.88 66.65 59.13 68.63 C58.36 69.51 58.36 69.51 57.57 70.41 C56 72 56 72 53 74 C52.01 74 51.02 74 50 74 C50 74.66 50 75.32 50 76 C49.2 76.25 48.39 76.5 47.56 76.75 C44.85 77.71 44.85 77.71 44.25 80 C44.17 80.66 44.09 81.32 44 82 C43.67 82.66 43.34 83.32 43 84 C42.34 84 41.68 84 41 84 C41 84.66 41 85.32 41 86 C40.01 86 39.02 86 38 86 C38 86.66 38 87.32 38 88 C24.21 89.03 24.21 89.03 19.63 85.13 C17 82.45 17 82.45 17 80 C15.35 80 13.7 80 12 80 C12 79.34 12 78.68 12 78 C11.01 78 10.02 78 9 78 C9 77.34 9 76.68 9 76 C8.34 76 7.68 76 7 76 C6.67 75.01 6.34 74.02 6 73 C4.13 71.98 4.13 71.98 1.94 71.31 C1.2 71.06 0.47 70.81 -0.29 70.55 C-0.85 70.37 -1.42 70.19 -2 70 C-2 69.34 -2 68.68 -2 68 C-2.6 67.73 -3.2 67.46 -3.81 67.19 C-6 66 -7.41 64.9 -9 63 C-9 62.34 -9 61.68 -9 61 C-9.66 61 -10.32 61 -11 61 C-11 60.01 -11 59.02 -11 58 C-11.66 58 -12.32 58 -13 58 C-13 56.68 -13 55.36 -13 54 C-13.66 54 -14.32 54 -15 54 C-15.5 52.23 -16 50.46 -16.5 48.69 C-16.78 47.7 -17.06 46.72 -17.34 45.7 C-18 43 -18 43 -18 40 C-16.02 39.51 -16.02 39.51 -14 39 C-14.16 38.44 -14.33 37.88 -14.49 37.3 C-15.03 34.86 -15.11 32.72 -15.1 30.23 C-15.09 29.34 -15.09 28.46 -15.09 27.54 C-15.08 26.62 -15.07 25.7 -15.06 24.75 C-15.06 23.81 -15.05 22.88 -15.05 21.91 C-15.04 19.61 -15.02 17.3 -15 15 C-14.34 15 -13.68 15 -13 15 C-13 14.01 -13 13.02 -13 12 C-12.34 12 -11.68 12 -11 12 C-11 11.34 -11 10.68 -11 10 C-10.34 10 -9.68 10 -9 10 C-9 9.34 -9 8.68 -9 8 C-8.34 8 -7.68 8 -7 8 C-7 7.34 -7 6.68 -7 6 C-6.34 6 -5.68 6 -5 6 C-5 5.34 -5 4.68 -5 4 C-3.35 3.34 -1.7 2.68 0 2 C0 1.34 0 0.68 0 0 Z M33 14 C33 14.66 33 15.32 33 16 C31.98 16.19 31.98 16.19 30.94 16.38 C27.95 16.96 27.95 16.96 24.94 18 C20.36 19.32 15.8 19.45 11.06 19.63 C10.19 19.66 9.31 19.7 8.41 19.74 C6.28 19.84 4.14 19.92 2 20 C-0.38 24.02 -0.38 24.02 -0.86 28.55 C-0.64 29.32 -0.41 30.09 -0.19 30.88 C0.03 31.66 0.24 32.44 0.46 33.24 C0.64 33.82 0.82 34.4 1 35 C1.66 35 2.32 35 3 35 C3.84 38.98 4.45 42.97 5 47 C5.66 47 6.32 47 7 47 C7 45.35 7 43.7 7 42 C7.99 42 8.98 42 10 42 C10 41.34 10 40.68 10 40 C10.89 40.02 11.77 40.04 12.69 40.06 C15.62 40.01 18.14 39.57 21 39 C21.33 39.33 21.66 39.66 22 40 C23.67 40.04 25.33 40.04 27 40 C27 41.98 27 43.96 27 46 C26.03 45.98 25.06 45.96 24.06 45.94 C21.13 45.64 21.13 45.64 20 47 C17.82 47.23 15.63 47.41 13.44 47.56 C12.24 47.65 11.04 47.73 9.81 47.82 C8.88 47.88 7.95 47.94 7 48 C7 49.98 7 51.96 7 54 C7.66 54 8.32 54 9 54 C8.94 54.99 8.88 55.98 8.81 57 C8.79 61.43 10.31 64.97 12 69 C12.33 69.99 12.66 70.98 13 72 C14.32 72 15.64 72 17 72 C17 72.66 17 73.32 17 74 C18.32 74 19.64 74 21 74 C21 74.66 21 75.32 21 76 C21.66 76 22.32 76 23 76 C23.25 76.62 23.5 77.24 23.75 77.88 C25.26 80.44 26.18 81.11 29 82 C31.85 81.65 34.27 80.91 37 80 C37 79.01 37 78.02 37 77 C37.66 77 38.32 77 39 77 C39 76.01 39 75.02 39 74 C39.66 74 40.32 74 41 74 C41 73.34 41 72.68 41 72 C41.62 71.71 42.24 71.42 42.88 71.13 C45.13 70.06 45.13 70.06 47 68 C47.28 65.87 47.28 65.87 47.2 63.43 C47.19 62.09 47.19 62.09 47.18 60.71 C47.16 59.78 47.14 58.84 47.13 57.88 C47.12 56.93 47.11 55.99 47.1 55.01 C47.07 52.67 47.04 50.34 47 48 C43.04 48 39.08 48 35 48 C35 47.34 35 46.68 35 46 C33.02 46 31.04 46 29 46 C29.99 42.54 29.99 42.54 31 39 C33.1 38.97 35.21 38.95 37.31 38.94 C38.48 38.93 39.66 38.91 40.86 38.9 C44 39 44 39 47 40 C47 42.31 47 44.62 47 47 C47.33 47 47.66 47 48 47 C48.13 45.98 48.27 44.95 48.4 43.89 C48.58 42.53 48.76 41.17 48.94 39.81 C49.02 39.14 49.11 38.47 49.2 37.77 C49.58 34.88 49.99 32.04 50.63 29.19 C51.12 26.29 50.26 24.6 49 22 C48.34 22 47.68 22 47 22 C46.34 20.35 45.68 18.7 45 17 C44.34 17 43.68 17 43 17 C43 16.01 43 15.02 43 14 C37.95 13.06 37.95 13.06 33 14 Z" transform="translate(24,5)"/>
+                        <path fill="currentColor" d="M0 0 C3.85 -0.09 7.24 0.25 11 1 C11.33 0.67 11.66 0.34 12 0 C14 -0.04 16 -0.04 18 0 C17.98 1.01 17.96 2.02 17.94 3.06 C18 6.8 18.4 10.31 19 14 C17.33 14.04 15.67 14.04 14 14 C13.67 13.67 13.34 13.34 13 13 C11.49 12.77 9.96 12.59 8.44 12.44 C7.61 12.35 6.78 12.27 5.93 12.18 C5.3 12.12 4.66 12.06 4 12 C4 12.66 4 13.32 4 14 C1.03 13.51 1.03 13.51 -2 13 C-2 10.69 -2 8.38 -2 6 C-1.34 5.67 -0.68 5.34 0 5 C0 3.35 0 1.7 0 0 Z" transform="translate(45,61)"/>
+                    </svg>
+                    Poe AI
+                </button>
+                <button class="settings-tab-btn" onclick="switchSettingsTab('prompts')">📝 AI Prompts</button>
+                <button class="settings-tab-btn" onclick="switchSettingsTab('aiisms')">⚠️ AI-isms</button>
+                <button class="settings-tab-btn" onclick="switchSettingsTab('other')">⚙️ Other</button>
+            </div>
+
+            <!-- Appearance Tab -->
+            <div id="settings-appearance-tab" class="settings-tab-content active">
+                <div class="settings-section">
+                    <h4>Appearance</h4>
+                    <label>
+                        Theme:
+                        <select id="themeSelect" onchange="saveSettings()">
+                            <option value="default">Modern Purple</option>
+                            <option value="typewriter">Typewriter</option>
+                            <option value="sepia">Sepia</option>
+                            <option value="ocean">Ocean Blue</option>
+                            <option value="forest">Forest Green</option>
+                            <option value="sunset">Sunset Orange</option>
+                            <option value="minimalist">Minimalist Gray</option>
+                            <option value="midnight">Midnight Dark</option>
+                        </select>
+                    </label>
+                    <label>
+                        Font Size:
+                        <select id="fontSizeSelect" onchange="saveSettings()">
+                            <option value="14">Small (14px)</option>
+                            <option value="16">Medium (16px)</option>
+                            <option value="18">Large (18px)</option>
+                            <option value="20">Extra Large (20px)</option>
+                            <option value="22">Huge (22px)</option>
+                        </select>
+                    </label>
+                    <label>
+                        Font Family:
+                        <select id="fontFamilySelect" onchange="saveSettings()">
+                            <option value="georgia">Georgia (Serif)</option>
+                            <option value="times">Times New Roman (Serif)</option>
+                            <option value="palatino">Palatino (Serif)</option>
+                            <option value="garamond">Garamond (Serif)</option>
+                            <option value="merriweather">Merriweather (Serif)</option>
+                            <option value="system">System (Sans-serif)</option>
+                            <option value="arial">Arial (Sans-serif)</option>
+                            <option value="helvetica">Helvetica (Sans-serif)</option>
+                            <option value="verdana">Verdana (Sans-serif)</option>
+                            <option value="lato">Lato (Sans-serif)</option>
+                            <option value="mono">Courier (Monospace)</option>
+                            <option value="consolas">Consolas (Monospace)</option>
+                            <option value="fira">Fira Code (Monospace)</option>
+                        </select>
+                    </label>
+                    <label>
+                        Auto-save Interval:
+                        <select id="autoSaveInterval" onchange="saveSettings()">
+                            <option value="30000">30 seconds</option>
+                            <option value="60000">1 minute</option>
+                            <option value="120000">2 minutes</option>
+                            <option value="300000">5 minutes</option>
+                        </select>
+                    </label>
+                </div>
+
+                <div class="settings-section">
+                    <div class="section-header">
+                        <h4>Theme Customization</h4>
+                        <button onclick="resetThemeColors()" class="secondary-btn small-btn">🔄 Reset to Default</button>
+                    </div>
+                    <p class="settings-hint">Customize colors for the current theme. Changes apply immediately.</p>
+                    
+                    <div class="color-grid">
+                        <label class="color-input-label">
+                            <span>Background</span>
+                            <input type="color" id="customBgPrimary" class="theme-color-picker" data-var="--bg-primary">
+                        </label>
+                        <label class="color-input-label">
+                            <span>Secondary Background</span>
+                            <input type="color" id="customBgSecondary" class="theme-color-picker" data-var="--bg-secondary">
+                        </label>
+                        <label class="color-input-label">
+                            <span>Toolbar Background</span>
+                            <input type="color" id="customToolbarBg" class="theme-color-picker" data-var="--toolbar-bg">
+                        </label>
+                        <label class="color-input-label">
+                            <span>Text Color</span>
+                            <input type="color" id="customTextPrimary" class="theme-color-picker" data-var="--text-primary">
+                        </label>
+                        <label class="color-input-label">
+                            <span>Secondary Text</span>
+                            <input type="color" id="customTextSecondary" class="theme-color-picker" data-var="--text-secondary">
+                        </label>
+                        <label class="color-input-label">
+                            <span>Accent Color</span>
+                            <input type="color" id="customAccentPrimary" class="theme-color-picker" data-var="--accent-primary">
+                        </label>
+                        <label class="color-input-label">
+                            <span>Border Color</span>
+                            <input type="color" id="customBorderColor" class="theme-color-picker" data-var="--border-color">
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Poe AI Tab -->
+            <div id="settings-pym-tab" class="settings-tab-content">
+                <div class="settings-section">
+                    <h4>AI Model Configuration</h4>
+                    
+                    <label>
+                        Model:
+                    </label>
+                    <div style="display: flex; gap: 8px; align-items: center; margin-top: 8px;">
+                        <select id="modelSelect" style="flex: 1;">
+                            <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+                        </select>
+                        <button id="favoriteBtn" class="icon-btn" onclick="toggleFavoriteModel()"
+                            title="Add to favorites">☆</button>
+                    </div>
+
+                    <label class="checkbox-label" style="margin-top: 20px;">
+                        <input type="checkbox" id="showFavoritesOnly" onchange="toggleFavoritesFilter()">
+                        <span>Show favorites only</span>
+                    </label>
+
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="showFreeOnly" onchange="toggleFavoritesFilter()">
+                        <span>Show free models only</span>
+                    </label>
+
+                    <label style="margin-top: 20px;">
+                        Tokens to Generate:
+                        <select id="tokensToGenerate" style="margin-top: 8px;">
+                            <option value="512">Micro (512)</option>
+                            <option value="1024">Very Short (1024)</option>
+                            <option value="2048">Short (2048)</option>
+                            <option value="4096" selected>Average (4096)</option>
+                            <option value="8192">Above Average (8192)</option>
+                            <option value="16384">Long (16384)</option>
+                            <option value="32768">Very Long (32768)</option>
+                            <option value="65536">Max (65536)</option>
+                            <option value="131072">Super Max (131072)</option>
+                        </select>
+                    </label>
+
+                    <label style="margin-top: 20px;">
+                        Temperature (Creativity):
+                        <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
+                            <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7" style="flex: 1; margin: 0;">
+                            <span id="temperatureValue" style="min-width: 30px; font-weight: 600; color: var(--accent-primary);">0.7</span>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="settings-section">
+                    <h4>API Configuration</h4>
+                    <label>
+                        OpenRouter API Key:
+                        <input type="password" id="settingsApiKey" placeholder="sk-or-...">
+                        <button onclick="updateApiKey()" class="secondary-btn" style="margin-top: 8px;">Update API
+                            Key</button>
+                    </label>
+                </div>
+            </div>
+
+            <!-- AI Prompts Tab -->
+            <div id="settings-prompts-tab" class="settings-tab-content">
+                <div class="settings-section">
+                    <div class="section-header">
+                        <h4>AI Prompts Customization</h4>
+                        <button onclick="restoreDefaultPrompts()" class="secondary-btn small-btn">🔄 Restore
+                            Defaults</button>
+                    </div>
+                    <p class="settings-hint">Customize the prompts sent to OpenRouter. Use these placeholders:</p>
+                    <ul class="placeholder-list">
+                        <li><code>{TOKENS_TO_GENERATE}</code> - Target token count</li>
+                        <li><code>{CONTEXT_NOTES}</code> - Your context notes</li>
+                        <li><code>{DOCUMENTS_CONTEXT}</code> - Enabled documents</li>
+                        <li><code>{RECENT_TEXT}</code> - Last 4000 characters of your story</li>
+                    </ul>
+
+                    <label>
+                        System Prompt:
+                        <textarea id="customSystemPrompt" rows="8" placeholder="System prompt..."></textarea>
+                    </label>
+
+                    <label>
+                        User Prompt:
+                        <textarea id="customUserPrompt" rows="5" placeholder="User prompt..."></textarea>
+                    </label>
+
+                    <button onclick="saveCustomPrompts()" class="primary-btn" style="margin-top: 10px;">💾 Save Custom
+                        Prompts</button>
+                </div>
+            </div>
+
+            <!-- AI-isms Tab -->
+            <div id="settings-aiisms-tab" class="settings-tab-content">
+                <div class="settings-section">
+                    <div class="section-header">
+                        <h4>AI-ism Detection</h4>
+                        <button onclick="restoreDefaultAIisms()" class="secondary-btn small-btn">🔄 Restore Defaults</button>
+                    </div>
+                    <p class="settings-hint">Words and phrases that will be highlighted with red squiggly underlines in Chapter documents. Add one per line.</p>
+                    
+                    <label>
+                        AI-ism List:
+                        <textarea id="aiismsList" rows="20" placeholder="Enter AI-isms, one per line..." style="font-family: monospace; font-size: 13px;"></textarea>
+                    </label>
+
+                    <button onclick="saveAIisms()" class="primary-btn" style="margin-top: 10px;">💾 Save AI-isms</button>
+                </div>
+            </div>
+
+            <!-- Other Tab -->
+            <div id="settings-other-tab" class="settings-tab-content">
+                <div class="settings-section">
+                    <h4>Document Conversion</h4>
+                    <p class="settings-hint">Convert old HTML documents to Markdown (preserves formatting like <strong>bold</strong>, <em>italic</em>, headers, etc.)</p>
+                    <button onclick="convertAllDocumentsToPlainText()" class="primary-btn">🔄 Convert All to Markdown</button>
+                </div>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Request Preview Modal - Replace the existing one with this -->
+    <div id="requestPreviewModal" class="modal" style="display:none;">
+        <div class="modal-content preview-modal">
+            <div class="preview-header">
+                <h3>🔍 Preview</h3>
+                <button onclick="closeRequestPreview()" class="close-btn">✕</button>
+            </div>
+
+            <!-- Preview Tabs -->
+            <div class="preview-tabs">
+                <button class="preview-tab-btn active" data-tab="api" onclick="switchPreviewTab('api')">API Request</button>
+                <button class="preview-tab-btn" data-tab="documents" onclick="switchPreviewTab('documents')">Documents Context</button>
+                <button class="preview-tab-btn" data-tab="go" onclick="switchPreviewTab('go')">Go Prompt</button>
+            </div>
+
+            <!-- API Tab -->
+            <div id="preview-api-tab" class="preview-tab-content active">
+                <p class="preview-description">This is exactly what will be sent to OpenRouter:</p>
+                <div class="preview-code-container">
+                    <pre id="requestPreviewContent" class="preview-code"></pre>
+                </div>
+            </div>
+
+            <!-- Documents Tab -->
+            <div id="preview-documents-tab" class="preview-tab-content">
+                <p class="preview-description">Enabled documents in order (as sent to AI):</p>
+                <div class="preview-code-container">
+                    <pre id="documentsPreviewContent" class="preview-code"></pre>
+                </div>
+            </div>
+
+            <!-- Go Prompt Tab -->
+            <div id="preview-go-tab" class="preview-tab-content">
+                <p class="preview-description">This shows what the Go button will send (non-fiction prompt):</p>
+                <div class="preview-code-container">
+                    <pre id="goPreviewContent" class="preview-code"></pre>
+                </div>
+            </div>
+
+            <div class="modal-buttons">
+                <button onclick="copyRequestPreview()" class="primary-btn">📋 Copy to Clipboard</button>
+                <button onclick="closeRequestPreview()" class="secondary-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- About Modal -->
+    <div id="aboutModal" class="modal" style="display:none;">
+        <div class="modal-content about-modal">
+            <div class="about-header">
+                <div class="about-logo">🪶</div>
+                <h2>Poe Write</h2>
+                <p class="version-tag">Version 1.0</p>
+            </div>
+
+            <div class="about-content">
+                <div class="about-section">
+                    <h3>About This App</h3>
+                    <p>Poe Write is an AI-powered writing application designed for novelists, storytellers, and content creators. It combines powerful document management with intelligent AI assistance to help bring your stories to life.</p>
+                </div>
+
+                <div class="about-section">
+                    <h3>Features</h3>
+                    <ul class="feature-list">
+                        <li>📖 Multi-project organization with chapters and documents</li>
+                        <li>🤖 AI-powered writing assistance via OpenRouter</li>
+                        <li>💬 Interactive chat with context awareness</li>
+                        <li>✏️ Markdown editing with live preview</li>
+                        <li>📊 Word count tracking and progress monitoring</li>
+                        <li>💾 Encrypted local storage with backup/restore</li>
+                        <li>🎨 Multiple beautiful themes</li>
+                        <li>⚡ Tab key and keyboard shortcuts for fast writing</li>
+                    </ul>
+                </div>
+
+                <div class="about-section">
+                    <h3>Technology</h3>
+                    <p>Built with modern web technologies including CodeMirror for markdown editing, IndexedDB for storage, and OpenRouter API for AI capabilities. All data is stored locally and encrypted on your device.</p>
+                </div>
+
+                <div class="about-section">
+                    <h3>Copyright & License</h3>
+                    <p class="copyright-text">© 2025 Poe Write. All rights reserved.</p>
+                    <p class="license-text">This software is provided "as is" without warranty of any kind. Unauthorized copying, distribution, or modification of this software is prohibited.</p>
+                </div>
+
+                <div class="about-section">
+                    <h3>Third-Party Libraries</h3>
+                    <ul class="library-list">
+                        <li><strong>CodeMirror</strong> - Code editor (MIT License)</li>
+                        <li><strong>CryptoJS</strong> - Encryption library (MIT License)</li>
+                        <li><strong>Marked</strong> - Markdown parser (MIT License)</li>
+                        <li><strong>DOMPurify</strong> - HTML sanitizer (Apache 2.0 / MPL 2.0)</li>
+                    </ul>
+                </div>
+
+                <div class="about-section">
+                    <h3>Privacy</h3>
+                    <p>Your data never leaves your device. All documents, settings, and API keys are stored locally in your browser's IndexedDB. Your OpenRouter API key is encrypted before storage.</p>
+                </div>
+
+                <div class="about-footer">
+                    <p>Made with ❤️ for writers everywhere</p>
+                    <p class="footer-links">
+                        <a href="https://openrouter.ai" target="_blank">OpenRouter</a> • 
+                        <a href="https://codemirror.net/5/" target="_blank">CodeMirror</a>
+                    </p>
+                </div>
+            </div>
+
+            <div class="modal-buttons">
+                <button onclick="closeAboutModal()" class="primary-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stop Button -->
+    <button id="stopGenerationBtn" class="stop-generation-btn" onclick="stopGeneration()" style="display:none;">
+        <span class="stop-icon">⏹</span>
+        <span class="stop-label">Stop Generation</span>
+    </button>
+
+    <!-- Accept/Reject Buttons -->
+    <div id="acceptRejectContainer" class="accept-reject-container" style="display:none;">
+        <button class="accept-btn" onclick="acceptGeneratedText()">
+            <span class="btn-icon">✓</span>
+            <span class="btn-label">Accept</span>
+        </button>
+        <button class="reject-btn" onclick="rejectGeneratedText()">
+            <span class="btn-icon">✕</span>
+            <span class="btn-label">Reject</span>
+        </button>
+    </div>
+
+    <!-- Generation Loading Overlay -->
+    <div id="generationLoadingOverlay" class="generation-loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Preparing your story...</div>
+        <div class="loading-subtext">Waiting for AI response</div>
+    </div>
+
+    <!-- Floating AI Toolbar -->
+    <div id="floatingAiToolbar" class="floating-ai-toolbar collapsed">
+        <button class="toolbar-toggle-btn" onclick="toggleAiToolbar()" title="AI Tools">
+            ✨
+        </button>
+        <div class="toolbar-buttons">
+            <button class="ai-toolbar-btn" onclick="continueStory()" id="floatingContinueBtn" title="Continue Story">
+                <span class="btn-icon">✨</span>
+                <span class="btn-label">Continue</span>
+            </button>
+            <button class="ai-toolbar-btn" onclick="goGenerate()" id="floatingGoBtn" title="Generate from Documents">
+                <span class="btn-icon">🚀</span>
+                <span class="btn-label">Go</span>
+            </button>
+            <button class="ai-toolbar-btn" onclick="previewAiRequest()" title="Preview API Request">
+                <span class="btn-icon">👁️</span>
+                <span class="btn-label">Preview</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Context Menu for Selected Text -->
+    <div id="contextImproveMenu" class="context-improve-menu" style="display:none;">
+        <button class="context-menu-btn" onclick="improveText()">
+            <span class="btn-icon">🔄</span>
+            <span class="btn-label">Improve Selection</span>
+        </button>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
