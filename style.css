@@ -1357,6 +1357,16 @@ textarea {
     max-width: 700px;
 }
 
+/* External Editor Modal Specific Styles */
+.external-editor-modal {
+    max-width: 900px;
+    width: 95%;
+}
+
+.external-editor-modal textarea {
+    font-family: Georgia, 'Times New Roman', serif;
+}
+
 .settings-tabs {
     display: flex;
     gap: 5px;

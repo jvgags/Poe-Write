@@ -256,6 +256,8 @@ window.onload = async function() {
         lineNumbers: false,
         lineWrapping: true,
         autofocus: true,
+        inputStyle: 'contenteditable', // Enables browser spellcheck and potentially Grammarly
+        spellcheck: true, // Enable browser spellcheck
         placeholder: 'Select a document from the sidebar to start writing...',
         extraKeys: {
             'Tab': function(cm) {
@@ -1158,9 +1160,14 @@ function updateDocumentsList() {
 
 // Drag and Drop handlers
 function handleDragStart(e) {
+    console.log('Drag start triggered');
     draggedElement = e.target.closest('.document-card');
-    if (!draggedElement) return;
+    if (!draggedElement) {
+        console.log('No document-card found');
+        return;
+    }
     
+    console.log('Dragging element:', draggedElement);
     draggedElement.style.opacity = '0.4';
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/html', draggedElement.innerHTML);
@@ -1179,8 +1186,10 @@ function handleDragOver(e) {
         
         // Clear all borders first
         document.querySelectorAll('.document-card').forEach(card => {
-            card.style.borderTop = '';
-            card.style.borderBottom = '';
+            if (card && card.style) {
+                card.style.borderTop = '';
+                card.style.borderBottom = '';
+            }
         });
         
         if (e.clientY < midpoint) {
@@ -1194,14 +1203,20 @@ function handleDragOver(e) {
 }
 
 function handleDrop(e) {
+    console.log('Drop triggered');
     if (e.stopPropagation) {
         e.stopPropagation();
     }
     
     const target = e.target.closest('.document-card');
+    console.log('Drop target:', target);
+    console.log('Dragged element:', draggedElement);
+    
     if (draggedElement && target && draggedElement !== target) {
         const draggedId = parseInt(draggedElement.dataset.docId);
         const targetId = parseInt(target.dataset.docId);
+        
+        console.log('Dragged ID:', draggedId, 'Target ID:', targetId);
         
         const draggedDoc = documents.find(d => d.id === draggedId);
         const targetDoc = documents.find(d => d.id === targetId);
@@ -1215,6 +1230,8 @@ function handleDrop(e) {
             // Find current positions
             const draggedIndex = projectDocs.findIndex(d => d.id === draggedId);
             const targetIndex = projectDocs.findIndex(d => d.id === targetId);
+            
+            console.log('Dragged index:', draggedIndex, 'Target index:', targetIndex);
             
             // Remove dragged doc
             const [removed] = projectDocs.splice(draggedIndex, 1);
@@ -1231,6 +1248,8 @@ function handleDrop(e) {
                 insertIndex = e.clientY < midpoint ? targetIndex : targetIndex + 1;
             }
             
+            console.log('Insert index:', insertIndex);
+            
             // Insert at new position
             projectDocs.splice(insertIndex, 0, removed);
             
@@ -1241,30 +1260,37 @@ function handleDrop(e) {
             
             autoSave();
             updateDocumentsList();
+            console.log('Drag complete - list updated');
         }
     }
     
     // Clear border indicators
     document.querySelectorAll('.document-card').forEach(card => {
-        card.style.borderTop = '';
-        card.style.borderBottom = '';
+        if (card && card.style) {
+            card.style.borderTop = '';
+            card.style.borderBottom = '';
+        }
     });
     
     return false;
 }
 
 function handleDragEnd(e) {
-    if (draggedElement) {
+    console.log('Drag end triggered');
+    if (draggedElement && draggedElement.style) {
         draggedElement.style.opacity = '1';
     }
     
     // Clear all border indicators
     document.querySelectorAll('.document-card').forEach(card => {
-        card.style.borderTop = '';
-        card.style.borderBottom = '';
+        if (card && card.style) {
+            card.style.borderTop = '';
+            card.style.borderBottom = '';
+        }
     });
     
     draggedElement = null;
+    console.log('Drag cleanup complete');
 }
 
 function getTypeIcon(type) {
@@ -4043,9 +4069,9 @@ function copyProject(projectId) {
     
     // Copy all documents from original project
     const projectDocs = documents.filter(d => d.projectId === projectId);
-    projectDocs.forEach(doc => {
+    projectDocs.forEach((doc, index) => {
         const newDoc = {
-            id: Date.now() + Math.random(), // Ensure unique ID
+            id: Date.now() + index, // Ensure unique integer ID
             projectId: newProject.id,
             title: doc.title,
             type: doc.type,
@@ -4063,6 +4089,42 @@ function copyProject(projectId) {
     updateProjectsList();
     updateProjectDropdown();
     showToast(`Project copied! Created "${newProject.title}" 📋`);
+}
+
+/* ========== FIX BROKEN DOCUMENT IDs ========== */
+
+function fixBrokenDocumentIds() {
+    let fixed = 0;
+    const seenIds = new Set();
+    
+    documents.forEach(doc => {
+        // Fix decimal IDs
+        if (!Number.isInteger(doc.id)) {
+            const newId = Date.now() + fixed;
+            console.log(`Fixing decimal ID ${doc.id} -> ${newId}`);
+            doc.id = newId;
+            fixed++;
+        }
+        
+        // Fix duplicate IDs
+        if (seenIds.has(doc.id)) {
+            const newId = Date.now() + fixed;
+            console.log(`Fixing duplicate ID ${doc.id} -> ${newId}`);
+            doc.id = newId;
+            fixed++;
+        }
+        
+        seenIds.add(doc.id);
+    });
+    
+    if (fixed > 0) {
+        autoSave();
+        updateDocumentsList();
+        showToast(`Fixed ${fixed} broken document ID(s) ✅`);
+        console.log(`Fixed ${fixed} document IDs`);
+    } else {
+        showToast('All document IDs are valid ✓');
+    }
 }
 
 /* ========== PROJECT DRAG & DROP ========== */
@@ -4475,6 +4537,58 @@ function openAboutModal() {
 
 function closeAboutModal() {
     document.getElementById('aboutModal').style.display = 'none';
+}
+
+/* ========== EXTERNAL EDITOR (Grammarly Compatible) ========== */
+
+function openExternalEditor() {
+    if (!currentDocumentId) {
+        showToast('Please open a document first');
+        return;
+    }
+    
+    // Get current document content
+    const content = cmEditor.getValue();
+    
+    // Populate the external editor textarea
+    document.getElementById('externalEditorTextarea').value = content;
+    
+    // Show the modal
+    document.getElementById('externalEditorModal').style.display = 'flex';
+    
+    // Focus the textarea
+    setTimeout(() => {
+        document.getElementById('externalEditorTextarea').focus();
+    }, 100);
+}
+
+function closeExternalEditor() {
+    document.getElementById('externalEditorModal').style.display = 'none';
+}
+
+function applyExternalEditorChanges() {
+    if (!currentDocumentId) {
+        showToast('No document is currently open');
+        closeExternalEditor();
+        return;
+    }
+    
+    // Get the edited content
+    const newContent = document.getElementById('externalEditorTextarea').value;
+    
+    // Update the CodeMirror editor
+    cmEditor.setValue(newContent);
+    
+    // Mark as having unsaved changes
+    hasUnsavedChanges = true;
+    
+    // Save the document
+    saveDocument(false);
+    
+    // Close the modal
+    closeExternalEditor();
+    
+    showToast('Changes applied! 📝');
 }
 
 /* ========== EXPORT TO MARKDOWN ========== */
@@ -5028,13 +5142,16 @@ function toggleAiToolbar() {
     }, 350); // Match the CSS transition duration
 }
     
-    
     document.addEventListener('mouseup', function() {
         if (isDraggingToolbar) {
             isDraggingToolbar = false;
-            toolbar.classList.remove('dragging');
+            const toolbar = document.getElementById('floatingAiToolbar');
+            if (toolbar) {
+                toolbar.classList.remove('dragging');
+            }
         }
     });
+
 
 
 /* ========== CONTEXT IMPROVE MENU ========== */

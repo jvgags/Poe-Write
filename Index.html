@@ -268,6 +268,7 @@
                         
                         <div class="toolbar-section">
                             <button class="tb-btn tb-icon" onclick="toggleSearchReplace()" title="Find">🔍</button>
+                            <button class="tb-btn tb-icon" onclick="openExternalEditor()" title="Edit in External Editor (Grammarly Compatible)">📝</button>
                             <button class="tb-btn tb-icon" onclick="openSettingsModal()" title="Settings">⚙</button>
                         </div>
                     </div>
@@ -707,6 +708,12 @@
                     <p class="settings-hint">Convert old HTML documents to Markdown (preserves formatting like <strong>bold</strong>, <em>italic</em>, headers, etc.)</p>
                     <button onclick="convertAllDocumentsToPlainText()" class="primary-btn">🔄 Convert All to Markdown</button>
                 </div>
+                
+                <div class="settings-section">
+                    <h4>Repair Tools</h4>
+                    <p class="settings-hint">Fix broken or duplicate document IDs (useful if you've copied projects and drag-and-drop isn't working)</p>
+                    <button onclick="fixBrokenDocumentIds()" class="primary-btn">🔧 Fix Document IDs</button>
+                </div>
             </div>
             </div>
         </div>
@@ -824,6 +831,40 @@
 
             <div class="modal-buttons">
                 <button onclick="closeAboutModal()" class="primary-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- External Editor Modal -->
+    <div id="externalEditorModal" class="modal" style="display:none;">
+        <div class="modal-content external-editor-modal">
+            <div class="modal-header">
+                <h3>📝 External Editor</h3>
+                <button onclick="closeExternalEditor()" class="close-btn">✕</button>
+            </div>
+            
+            <p class="settings-hint" style="margin-bottom: 15px;">
+                Edit your text in this plain textarea that works with Grammarly and other browser extensions. 
+                Click "Apply Changes" when done to update your document.
+            </p>
+            
+            <textarea id="externalEditorTextarea" 
+                      placeholder="Your document text will appear here..." 
+                      style="width: 100%; 
+                             height: 500px; 
+                             padding: 15px; 
+                             font-family: var(--font-family); 
+                             font-size: 16px; 
+                             line-height: 1.6;
+                             border: 2px solid var(--border-color);
+                             border-radius: 8px;
+                             resize: vertical;
+                             background: var(--bg-primary);
+                             color: var(--text-primary);"></textarea>
+            
+            <div class="modal-buttons" style="margin-top: 15px;">
+                <button onclick="applyExternalEditorChanges()" class="primary-btn">✅ Apply Changes</button>
+                <button onclick="closeExternalEditor()" class="secondary-btn">Cancel</button>
             </div>
         </div>
     </div>
