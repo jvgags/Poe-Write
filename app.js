@@ -754,6 +754,7 @@ function updateProjectDropdown() {
 
 function updateProjectsList() {
     const container = document.getElementById('projectsList');
+    if (!container) return;
     
     if (projects.length === 0) {
         container.innerHTML = '<p style="text-align:center; color:#999; padding:40px;">No projects yet. Create one to get started!</p>';
@@ -852,10 +853,7 @@ function viewProjectDocuments(projectId) {
     }
     
     // 5. Switch to Write Tab
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-    document.querySelector('.tab-btn:first-child').classList.add('active');
-    document.getElementById('write-tab').classList.add('active');
+    switchTab('write');
     
     // 6. Refresh Lists
     updateDocumentsList();
@@ -1140,19 +1138,21 @@ function updateDocumentsList() {
                  onclick="openDocumentInEditor(${doc.id})">
                 <div class="document-header">
                     <div class="drag-handle" title="Drag to reorder">⋮⋮</div>
-                    <label class="toggle-container" onclick="event.stopPropagation();">
-                        <input type="checkbox" ${doc.enabled ? 'checked' : ''} onchange="toggleDocument(${doc.id})">
-                        <span class="toggle-slider"></span>
-                    </label>
                     <div class="document-title">
                         <h4 title="${doc.title}"><span class="doc-type-icon">${getTypeIcon(doc.type)}</span> ${doc.title}</h4>
-                        <span class="document-meta">${doc.wordCount || 0} words • ${doc.type}</span>
                     </div>
                     <div class="document-actions">
                         <button class="icon-btn" onclick="event.stopPropagation(); duplicateDocument(${doc.id})" title="Duplicate">📋</button>
                         <button class="icon-btn" onclick="event.stopPropagation(); openEditDocumentModal(${doc.id})" title="Edit">✏️</button>
                         <button class="icon-btn delete-icon" onclick="event.stopPropagation(); deleteDocument(${doc.id})" title="Delete">🗑️</button>
                     </div>
+                </div>
+                <div class="document-footer">
+                    <label class="toggle-container" onclick="event.stopPropagation();" title="${doc.enabled ? 'Enabled' : 'Disabled'}">
+                        <input type="checkbox" ${doc.enabled ? 'checked' : ''} onchange="toggleDocument(${doc.id})">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="document-meta">${doc.wordCount || 0} words • ${doc.type}</span>
                 </div>
             </div>
         `;
@@ -3967,24 +3967,30 @@ function switchSettingsTab(tabName) {
 }
 
 function switchTab(tabName) {
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    // Update nav buttons in sidebar
+    document.querySelectorAll('.sidebar-nav-btn').forEach(btn => btn.classList.remove('active'));
+    const navBtn = document.getElementById(`nav-${tabName}`);
+    if (navBtn) navBtn.classList.add('active');
 
-    event.target.classList.add('active');
-    document.getElementById(`${tabName}-tab`).classList.add('active');
+    // Toggle the write-tab (editor) and projects-view
+    const writeTab = document.getElementById('write-tab');
+    const projectsView = document.getElementById('projects-view');
 
-    if (tabName === 'projects') {
+    if (tabName === 'write') {
+        if (writeTab) writeTab.style.display = 'flex';
+        if (projectsView) projectsView.style.display = 'none';
+    } else {
+        if (writeTab) writeTab.style.display = 'none';
+        if (projectsView) projectsView.style.display = 'flex';
         updateProjectsList();
     }
-    
+
     // Hide floating toolbar if not on write tab
     updateFloatingToolbarVisibility();
-    
+
     // Also hide context menu
     const contextMenu = document.getElementById('contextImproveMenu');
-    if (contextMenu) {
-        contextMenu.style.display = 'none';
-    }
+    if (contextMenu) contextMenu.style.display = 'none';
 }
 
 function toggleMenu() {
@@ -5247,12 +5253,9 @@ function updateFloatingToolbarVisibility() {
     
     if (!toolbar || !writeTab) return;
     
-    // Show toolbar only when write tab is active
-    if (writeTab.classList.contains('active')) {
-        toolbar.style.display = 'flex';
-    } else {
-        toolbar.style.display = 'none';
-    }
+    // Show toolbar only when write tab is visible
+    const isWriteVisible = writeTab.style.display !== 'none';
+    toolbar.style.display = isWriteVisible ? 'flex' : 'none';
 }
 
 /* ========== HIGHLIGHT MARKER FUNCTIONS ========== */

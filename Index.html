@@ -101,73 +101,74 @@
     </nav>
 
     <!-- Main Content -->
-    <div id="main-content" style="position:fixed; top:60px; left:0; right:0; bottom:0; overflow:hidden; padding:10px; display:flex; flex-direction:column;">
-        <!-- Tabs -->
-        <div class="tabs" style="flex-shrink:0;">
-            <button class="tab-btn active" onclick="switchTab('write')">✏️ Write</button>
-            <button class="tab-btn" onclick="switchTab('projects')">📖 Projects</button>
-        </div>
+    <div id="main-content" style="position:fixed; top:50px; left:0; right:0; bottom:0; overflow:hidden; padding:0; display:flex; flex-direction:row;">
 
-        <!-- Write Tab -->
-        <div id="write-tab" class="tab-content active">
-            <div class="editor-layout-new">
-                <!-- Left Sidebar - Documents & AI -->
-                <aside class="sidebar-panel">
-                    <div class="sidebar-header">
-                        <select id="projectSelect" onchange="switchProject()">
-                            <option value="">No Project Selected</option>
-                        </select>
-                        <button class="icon-btn" onclick="openNewDocumentModal()" title="New Document">➕</button>
-                    </div>
+        <!-- Left Sidebar - always visible -->
+        <aside class="sidebar-panel">
 
-                    <div class="documents-master-toggle">
-                        <label class="toggle-container master-toggle">
-                            <input type="checkbox" id="masterDocumentToggle" onchange="toggleAllDocuments()">
-                            <span class="toggle-slider"></span>
-                        </label>
-                        <span class="master-toggle-label">Enable All</span>
-                    </div>
+            <!-- Sidebar Header: project select + new doc -->
+            <div class="sidebar-header">
+                <select id="projectSelect" onchange="switchProject()">
+                    <option value="">No Project Selected</option>
+                </select>
+                <button class="icon-btn" onclick="openNewDocumentModal()" title="New Document">➕</button>
+            </div>
 
-                    <!-- Sidebar Tabs -->
-                    <div class="sidebar-tabs">
-                        <button class="sidebar-tab-btn active" onclick="switchSidebarTab('documents')">📄 Documents</button>
-                        <button class="sidebar-tab-btn" onclick="switchSidebarTab('chat')">💬 Chat</button>
-                    </div>
+            <!-- Main nav: Write / Projects -->
+            <div class="sidebar-nav">
+                <button class="sidebar-nav-btn active" onclick="switchTab('write')" id="nav-write">✏️ Write</button>
+                <button class="sidebar-nav-btn" onclick="switchTab('projects')" id="nav-projects">📖 Projects</button>
+            </div>
 
-                    <!-- Documents Tab -->
-                    <div id="sidebar-documents-tab" class="sidebar-tab-content active">
-                        <div id="documentsList" class="documents-list"></div>
-                    </div>
+            <!-- WRITE panel -->
+            <div id="sidebar-write-panel" class="sidebar-main-panel active">
+                <div class="documents-master-toggle">
+                    <label class="toggle-container master-toggle">
+                        <input type="checkbox" id="masterDocumentToggle" onchange="toggleAllDocuments()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="master-toggle-label">Enable All</span>
+                </div>
 
-                    <!-- Chat Tab -->
-                    <div id="sidebar-chat-tab" class="sidebar-tab-content">
-                        <div class="chat-container">
-                            <div class="chat-header">
-                                <h4>💬 Chat with Poe</h4>
-                                <button class="icon-btn small-icon-btn" onclick="clearChatHistory()" title="Clear Chat">🗑️</button>
-                            </div>
-                            <div id="chatMessages" class="chat-messages"></div>
-                            <div class="chat-input-container">
-                                <textarea id="chatInput" placeholder="Ask Poe anything about your story..." rows="3"></textarea>
-                                <button class="chat-send-btn" onclick="sendChatMessage()">
-                                    <span>Send</span>
-                                    <span class="send-icon">📤</span>
-                                </button>
-                            </div>
+                <div class="sidebar-tabs">
+                    <button class="sidebar-tab-btn active" onclick="switchSidebarTab('documents')">📄 Documents</button>
+                    <button class="sidebar-tab-btn" onclick="switchSidebarTab('chat')">💬 Chat</button>
+                </div>
+
+                <div id="sidebar-documents-tab" class="sidebar-tab-content active">
+                    <div id="documentsList" class="documents-list"></div>
+                </div>
+
+                <div id="sidebar-chat-tab" class="sidebar-tab-content">
+                    <div class="chat-container">
+                        <div class="chat-header">
+                            <h4>💬 Chat with Poe</h4>
+                            <button class="icon-btn small-icon-btn" onclick="clearChatHistory()" title="Clear Chat">🗑️</button>
+                        </div>
+                        <div id="chatMessages" class="chat-messages"></div>
+                        <div class="chat-input-container">
+                            <textarea id="chatInput" placeholder="Ask Poe anything about your story..." rows="3"></textarea>
+                            <button class="chat-send-btn" onclick="sendChatMessage()">
+                                <span>Send</span>
+                                <span class="send-icon">📤</span>
+                            </button>
                         </div>
                     </div>
+                </div>
+            </div>
 
-                    <!-- Hidden AI Elements (used by code but not displayed in sidebar) -->
-                    <div style="display: none;">
-                        <textarea id="contextNotes"></textarea>
-                        <div id="aiOutput">
-                            <div id="aiOutputContent"></div>
-                        </div>
-                    </div>
-                </aside>
+            <!-- Hidden AI Elements -->
+            <div style="display: none;">
+                <textarea id="contextNotes"></textarea>
+                <div id="aiOutput">
+                    <div id="aiOutputContent"></div>
+                </div>
+            </div>
+        </aside>
 
-                <!-- Editor Section -->
-                <section class="editor-panel-new">
+        <!-- Editor area -->
+        <div id="write-tab" style="flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0;">
+            <section class="editor-panel-new">
                     <div class="document-info" id="documentInfo" style="display:none;">
                         <div class="document-info-header">
                             <div>
@@ -292,20 +293,20 @@
                         </div>
                     </div>
                 </section>
-            </div>
-        </div>
-
-        <!-- Projects Tab -->
-        <div id="projects-tab" class="tab-content">
-            <section class="card">
-                <h2>Your Projects</h2>
-                <button onclick="openNewProjectModal()" class="primary-btn" style="margin-bottom: 20px;">
-                    ➕ Create New Project
-                </button>
-                <div id="projectsList"></div>
             </section>
         </div>
+
+        <!-- Projects View - shown instead of editor when Projects tab active -->
+        <div id="projects-view" style="flex:1; display:none; flex-direction:column; overflow:hidden; min-width:0; background:var(--bg-primary);">
+            <div style="padding:15px; border-bottom:1px solid var(--border-color); display:flex; align-items:center; gap:10px; background:var(--bg-secondary); flex-shrink:0;">
+                <h3 style="margin:0; font-size:15px; font-weight:600;">Your Projects</h3>
+                <button onclick="openNewProjectModal()" class="primary-btn" style="margin-left:auto;">➕ New Project</button>
+            </div>
+            <div id="projectsList" style="flex:1; overflow-y:auto; padding:15px;"></div>
+        </div>
+
     </div>
+
 
     <!-- New Project Modal -->
     <div id="newProjectModal" class="modal" style="display:none;">
