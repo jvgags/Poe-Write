@@ -61,7 +61,7 @@ function switchEditorMode(mode) {
     const previewToggle = document.getElementById('previewToggle');
     
     if (mode === 'markdown') {
-        editorDiv.style.display = 'block';
+        editorDiv.style.display = 'flex';
         previewDiv.style.display = 'none';
         if (markdownToggle) markdownToggle.classList.add('active');
         if (previewToggle) previewToggle.classList.remove('active');
@@ -1056,6 +1056,11 @@ function loadDocumentToEditor() {
     // Refresh AI-ism highlights if this is a Chapter document
     if (doc.type === 'Chapter') {
         setTimeout(refreshAIismHighlights, 50);
+    }
+    
+    // Update preview if in preview mode
+    if (currentEditorMode === 'preview') {
+        updatePreview();
     }
 }
 
@@ -3644,15 +3649,28 @@ function insertMarkdown(type) {
 // Toggle full screen mode
 function toggleFullScreen() {
     document.body.classList.toggle('fullscreen-mode');
-    if (cmEditor) {
-        cmEditor.refresh();
-    }
-    const btn = document.querySelector('[onclick="toggleFullScreen()"]');
-    if (document.body.classList.contains('fullscreen-mode')) {
+    const isFullscreen = document.body.classList.contains('fullscreen-mode');
+    
+    if (isFullscreen) {
         showToast('Full screen mode');
     } else {
         showToast('Normal mode');
     }
+    
+    setTimeout(() => {
+        if (cmEditor) {
+            if (isFullscreen) {
+                const toolbar = document.querySelector('.markdown-toolbar-sleek');
+                const toolbarHeight = toolbar ? toolbar.offsetHeight : 0;
+                const available = window.innerHeight - toolbarHeight;
+                cmEditor.setSize(null, available);
+            } else {
+                // Restore normal mode - let CSS take over
+                cmEditor.setSize(null, '100%');
+            }
+            cmEditor.refresh();
+        }
+    }, 50);
 }
 
 /* ========== HTML TO MARKDOWN CONVERTER ========== */
@@ -4762,6 +4780,10 @@ document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
         e.preventDefault();
         toggleSearchReplace();
+    }
+    // Escape exits fullscreen
+    if (e.key === 'Escape' && document.body.classList.contains('fullscreen-mode')) {
+        toggleFullScreen();
     }
 });
 

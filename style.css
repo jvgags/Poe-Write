@@ -476,7 +476,11 @@ body {
 }
 
 .tab-content.active {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
 }
 
 /* Cards */
@@ -498,6 +502,8 @@ body {
     display: grid;
     grid-template-columns: 380px 1fr;
     gap: 10px;
+    flex: 1;
+    min-height: 0;
     height: calc(100vh - 120px);
 }
 
@@ -833,11 +839,17 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow: visible !important;
+    overflow: hidden;
+    position: relative;
+    min-height: 0; /* Critical for flex children to scroll properly */
 }
 
 #editor {
-    height: 100%;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .ql-container {
@@ -2317,9 +2329,9 @@ body.expanded-mode .editor-layout-new {
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow: hidden; /* This is the key */
+    overflow: hidden;
     position: relative;
-    min-height: 0; /* Important for flex overflow */
+    min-height: 0;
 }
 
 /* Make Quill toolbar sticky */
@@ -2355,10 +2367,11 @@ body.expanded-mode .editor-layout-new {
 
 /* Override any Quill defaults that might interfere */
 #editor {
-    height: 100%;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
 }
 
 /* Make sure the Quill container border radius works with sticky toolbar */
@@ -3011,6 +3024,8 @@ body.expanded-mode .editor-layout-new {
 /* ========== CODEMIRROR CUSTOM STYLES ========== */
 
 .CodeMirror {
+    flex: 1;
+    min-height: 0;
     height: 100% !important;
     font-family: 'Georgia', 'Times New Roman', serif;
     font-size: 16px;
@@ -3022,7 +3037,13 @@ body.expanded-mode .editor-layout-new {
 
 .CodeMirror-scroll {
     padding: 40px;
+    padding-bottom: 0;
     background: var(--bg-secondary);
+    box-sizing: border-box;
+}
+
+.CodeMirror-lines {
+    padding-bottom: 200px !important;
 }
 
 .CodeMirror-gutters {
@@ -3082,6 +3103,7 @@ body.expanded-mode .editor-layout-new {
 /* Markdown Preview */
 .markdown-preview {
     padding: 20px;
+    padding-bottom: 200px; /* Extra bottom padding so last lines are visible */
     margin: 0 auto;
     font-family: 'Georgia', 'Times New Roman', serif;
     font-size: 18px;
@@ -3365,10 +3387,17 @@ body.expanded-mode .editor-layout-new {
 
 /* ========== FULLSCREEN MODE ========== */
 
+body.fullscreen-mode {
+    overflow: hidden !important;
+}
+
 body.fullscreen-mode #menu,
 body.fullscreen-mode #menuOverlay,
 body.fullscreen-mode #hamburger,
-body.fullscreen-mode #top-bar,
+body.fullscreen-mode #top-bar {
+    display: none !important;
+}
+
 body.fullscreen-mode .tabs {
     display: none !important;
 }
@@ -3394,6 +3423,7 @@ body.fullscreen-mode .editor-panel-new {
 body.fullscreen-mode .editor-layout-new {
     grid-template-columns: 1fr !important;
     height: 100vh !important;
+    min-height: 0 !important;
 }
 
 body.fullscreen-mode .document-info {
@@ -3405,32 +3435,39 @@ body.fullscreen-mode .markdown-toolbar-sleek {
     position: sticky;
     top: 0;
     z-index: 100;
+    flex-shrink: 0 !important;
 }
 
 body.fullscreen-mode .editor-container-new {
-    height: calc(100vh - 45px) !important; /* Subtract toolbar height */
-    overflow: visible !important;
     flex: 1 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
 }
 
 body.fullscreen-mode #editor {
-    height: 100% !important;
+    flex: 1 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    flex-direction: column !important;
 }
 
 body.fullscreen-mode .CodeMirror {
-    height: 100% !important;
+    flex: 1 !important;
+    min-height: 0 !important;
 }
 
 body.fullscreen-mode .CodeMirror-scroll {
-    height: 100% !important;
-    overflow-y: auto !important;
+    overflow-y: scroll !important;
     overflow-x: auto !important;
 }
 
 body.fullscreen-mode .markdown-preview {
-    height: 100% !important;
+    flex: 1 !important;
+    min-height: 0 !important;
     overflow-y: auto !important;
     padding: 40px !important;
+    padding-bottom: 200px !important;
+}
 }
 
 
