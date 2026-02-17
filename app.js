@@ -330,6 +330,10 @@ window.onload = async function() {
         if (currentDoc && currentDoc.type === 'Chapter') {
             setTimeout(refreshAIismHighlights, 150);
         }
+
+        // Update right sidebar (debounced)
+        clearTimeout(window._rightSidebarTimer);
+        window._rightSidebarTimer = setTimeout(updateRightSidebar, 500);
     });
 
     // Selection change listener for floating button
@@ -1060,6 +1064,9 @@ function loadDocumentToEditor() {
     if (currentEditorMode === 'preview') {
         updatePreview();
     }
+
+    // Update right sidebar
+    setTimeout(updateRightSidebar, 100);
 }
 
 function saveDocument(showNotification = true) {
@@ -3644,6 +3651,86 @@ function insertMarkdown(type) {
     
     cmEditor.focus();
     hasUnsavedChanges = true;
+}
+
+// ========== RIGHT SIDEBAR ==========
+
+function toggleRightSidebar() {
+    const sidebar = document.getElementById('rightSidebar');
+    if (!sidebar) return;
+    sidebar.classList.toggle('collapsed');
+    document.body.classList.toggle('right-sidebar-collapsed');
+}
+
+function updateRightSidebar() {
+    if (!currentDocumentId) return;
+    const sidebar = document.getElementById('rightSidebar');
+    if (!sidebar || sidebar.classList.contains('collapsed')) return;
+
+    const doc = documents.find(d => d.id === currentDocumentId);
+    const project = projects.find(p => p.id === currentProjectId);
+    const content = cmEditor ? cmEditor.getValue() : '';
+
+    // --- Metadata ---
+    const words = content.trim() ? content.trim().split(/\s+/).length : 0;
+    const chars = content.length;
+    const paragraphs = content.split(/\n\s*\n/).filter(p => p.trim()).length;
+    const readTime = Math.max(1, Math.round(words / 200));
+
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    set('rsDocType',   doc ? doc.type : '-');
+    set('rsWordCount', words.toLocaleString());
+    set('rsCharCount', chars.toLocaleString());
+    set('rsParagraphs', paragraphs.toLocaleString());
+    set('rsReadTime',  readTime + ' min');
+    set('rsProject',   project ? project.title : '-');
+    set('rsEnabled',   doc ? (doc.enabled ? '✅ Yes' : '❌ No') : '-');
+
+    // Count AI-isms if available
+    const aiismMarks = document.querySelectorAll('.cm-aiism');
+    set('rsAiisms', aiismMarks.length > 0 ? `⚠️ ${aiismMarks.length}` : '✅ None');
+
+    // --- Table of Contents ---
+    const tocContainer = document.getElementById('tableOfContents');
+    if (!tocContainer) return;
+
+    const lines = content.split('\n');
+    const headers = [];
+    lines.forEach(line => {
+        const match = line.match(/^(#{1,6})\s+(.+)/);
+        if (match) {
+            headers.push({ level: match[1].length, text: match[2].trim() });
+        }
+    });
+
+    if (headers.length === 0) {
+        tocContainer.innerHTML = '<span class="empty-message">No headers</span>';
+        return;
+    }
+
+    tocContainer.innerHTML = headers.map((h, i) => `
+        <div class="toc-item level-${h.level}" onclick="jumpToHeader(${i})" title="${h.text}">
+            ${h.text}
+        </div>
+    `).join('');
+}
+
+function jumpToHeader(index) {
+    if (!cmEditor) return;
+    const content = cmEditor.getValue();
+    const lines = content.split('\n');
+    let count = 0;
+    for (let i = 0; i < lines.length; i++) {
+        if (/^#{1,6}\s+/.test(lines[i])) {
+            if (count === index) {
+                cmEditor.scrollIntoView({ line: i, ch: 0 }, 100);
+                cmEditor.setCursor({ line: i, ch: 0 });
+                cmEditor.focus();
+                return;
+            }
+            count++;
+        }
+    }
 }
 
 // Toggle full screen mode

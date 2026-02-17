@@ -69,6 +69,7 @@
         <div class="word-count-display">
             <span id="wordCount">0</span> words
         </div>
+        <button class="icon-btn" id="rightSidebarToggle" onclick="toggleRightSidebar()" title="Toggle Document Info">▶</button>
     </div>
 
     <!-- Menu Overlay -->
@@ -296,6 +297,67 @@
             </section>
         </div>
 
+        <!-- Right Sidebar -->
+        <aside class="right-sidebar" id="rightSidebar">
+            <div class="sidebar-header">
+                <h3>Document Info</h3>
+                <button class="icon-btn" onclick="toggleRightSidebar()" title="Collapse">▶</button>
+            </div>
+            <div class="sidebar-content" id="rightSidebarContent">
+
+                <!-- Table of Contents -->
+                <div class="toc-section">
+                    <h4>Table of Contents</h4>
+                    <div id="tableOfContents" class="toc-container">
+                        <span class="empty-message">No headers</span>
+                    </div>
+                </div>
+
+                <!-- Metadata -->
+                <div class="metadata-section">
+                    <h4>Metadata</h4>
+                    <div class="meta-item">
+                        <span class="meta-label">Type:</span>
+                        <span class="meta-value" id="rsDocType">-</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Words:</span>
+                        <span class="meta-value" id="rsWordCount">0</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Characters:</span>
+                        <span class="meta-value" id="rsCharCount">0</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Paragraphs:</span>
+                        <span class="meta-value" id="rsParagraphs">0</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Est. Read:</span>
+                        <span class="meta-value" id="rsReadTime">0 min</span>
+                    </div>
+                </div>
+
+                <!-- Document Status -->
+                <div class="metadata-section">
+                    <h4>Document</h4>
+                    <div class="meta-item">
+                        <span class="meta-label">Project:</span>
+                        <span class="meta-value" id="rsProject">-</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Enabled:</span>
+                        <span class="meta-value" id="rsEnabled">-</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">AI-isms:</span>
+                        <span class="meta-value" id="rsAiisms">-</span>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
         <!-- Projects View - shown instead of editor when Projects tab active -->
         <div id="projects-view" style="flex:1; display:none; flex-direction:column; overflow:hidden; min-width:0; background:var(--bg-primary);">
             <div style="padding:15px; border-bottom:1px solid var(--border-color); display:flex; align-items:center; gap:10px; background:var(--bg-secondary); flex-shrink:0;">
@@ -509,6 +571,7 @@
                             <option value="ocean">Ocean Blue</option>
                             <option value="forest">Forest Green</option>
                             <option value="sunset">Sunset Orange</option>
+                            <option value="author">Author</option>
                             <option value="minimalist">Minimalist Gray</option>
                             <option value="midnight">Midnight Dark</option>
                         </select>
