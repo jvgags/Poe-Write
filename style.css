@@ -54,6 +54,8 @@ body {
     background: var(--bg-primary);
     color: var(--text-primary);
     transition: background 0.3s, color 0.3s;
+    overflow: hidden;
+    height: 100vh;
 }
 
 /* ========== THEME VARIABLES ========== */
@@ -434,8 +436,6 @@ body {
 
 /* Main Content */
 #main-content {
-    margin-top: 60px;
-    padding: 10px;
     max-width: 1800px;
     margin-left: auto;
     margin-right: auto;
@@ -504,7 +504,6 @@ body {
     gap: 10px;
     flex: 1;
     min-height: 0;
-    height: calc(100vh - 120px);
 }
 
 /* Sidebar Panel */
@@ -516,12 +515,15 @@ body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    height: 100%;
+    min-height: 0;
 }
 
 .sidebar-header {
     display: flex;
     gap: 8px;
     margin-bottom: 15px;
+    flex-shrink: 0;
 }
 
 .sidebar-header select {
@@ -534,6 +536,7 @@ body {
     gap: 5px;
     margin: 10px 0 10px 0;
     border-bottom: 2px solid var(--border-color);
+    flex-shrink: 0;
 }
 
 .sidebar-tab-btn {
@@ -560,16 +563,17 @@ body {
     border-bottom-color: var(--accent-primary);
 }
 
+/* Tab content: hidden by default, fills remaining space when active */
 .sidebar-tab-content {
     display: none;
-    flex: 1;
-    overflow-y: auto;
-    margin-top: 10px;
 }
 
 .sidebar-tab-content.active {
     display: flex;
     flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .documents-master-toggle {
@@ -579,8 +583,9 @@ body {
     padding: 6px 8px;
     background: var(--bg-accent);
     border-radius: 8px;
-    /*margin-bottom: 12px; */
     border: 2px solid var(--border-color);
+    flex-shrink: 0;
+    margin-bottom: 8px;
 }
 
 .master-toggle-label {
@@ -615,8 +620,9 @@ body {
 .documents-list {
     flex: 1;
     overflow-y: auto;
-    overflow-x: hidden; /* FIX: Prevents horizontal scrollbar jitter on hover */
-    padding-right: 4px; /* Optional: Adds breathing room for the scrollbar */
+    overflow-x: hidden;
+    min-height: 0;
+    padding-right: 4px;
 }
 
 .doc-type-icon {
@@ -2041,8 +2047,10 @@ body.expanded-mode .editor-layout-new {
 .chat-container {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     gap: 10px;
+    overflow: hidden;
 }
 
 .chat-header {
@@ -2051,6 +2059,7 @@ body.expanded-mode .editor-layout-new {
     align-items: center;
     padding: 8px 0;
     border-bottom: 2px solid var(--border-color);
+    flex-shrink: 0;
 }
 
 .chat-header h4 {
@@ -2068,6 +2077,7 @@ body.expanded-mode .editor-layout-new {
 
 .chat-messages {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     padding: 10px 0;
     display: flex;
@@ -2154,6 +2164,7 @@ body.expanded-mode .editor-layout-new {
     gap: 8px;
     padding-top: 10px;
     border-top: 2px solid var(--border-color);
+    flex-shrink: 0;
 }
 
 .chat-input-container textarea {
@@ -3403,8 +3414,8 @@ body.fullscreen-mode .tabs {
 }
 
 body.fullscreen-mode #main-content {
-    margin-top: 0 !important;
-    height: 100vh !important;
+    top: 0 !important;
+    padding: 0 !important;
 }
 
 body.fullscreen-mode .sidebar-panel {

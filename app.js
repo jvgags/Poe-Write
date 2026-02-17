@@ -2967,7 +2967,7 @@ function showGeneratingState(isGenerating, isGoButton = false) {
     }
 }
 
-// Beautiful character-by-character streaming effect with auto-scroll
+// Fast chunk-based streaming effect with auto-scroll
 function streamInsertAtCursor(text, startIndex, disablescroll = false) {
     isStreaming = true;
     generatedTextStartIndex = startIndex;
@@ -2979,12 +2979,14 @@ function streamInsertAtCursor(text, startIndex, disablescroll = false) {
     
     const cmContainer = document.querySelector('.CodeMirror-scroll');
     
-    // Scroll to start position if at beginning
     if (cmContainer && startIndex === 0) {
         cmContainer.scrollTop = 0;
     }
     
+    // Insert in chunks of ~20 characters for fast but visible streaming
+    const CHUNK_SIZE = 20;
     let i = 0;
+
     streamingInterval = setInterval(() => {
         if (!isStreaming || i >= text.length) {
             clearInterval(streamingInterval);
@@ -2992,7 +2994,6 @@ function streamInsertAtCursor(text, startIndex, disablescroll = false) {
             isStreaming = false;
             hideStopButton();
             
-            // Reset continue button
             const continueBtn = document.getElementById('continueBtn');
             if (continueBtn) {
                 continueBtn.disabled = false;
@@ -3005,30 +3006,29 @@ function streamInsertAtCursor(text, startIndex, disablescroll = false) {
             return;
         }
 
-        const char = text[i];
+        // Insert a chunk of characters at once
+        const chunk = text.slice(i, i + CHUNK_SIZE);
         const pos = cmEditor.posFromIndex(startIndex + i);
-        cmEditor.replaceRange(char, pos);
+        cmEditor.replaceRange(chunk, pos);
         
-        generatedTextLength = i + 1;
+        i += chunk.length;
+        generatedTextLength = i;
         
         if (!disablescroll) {
-            const newPos = cmEditor.posFromIndex(startIndex + i + 1);
+            const newPos = cmEditor.posFromIndex(startIndex + i);
             cmEditor.setCursor(newPos);
             
-            // Auto-scroll every 10 characters
-            if (i % 10 === 0) {
-                const cursorCoords = cmEditor.cursorCoords(true, 'local');
-                if (cmContainer) {
-                    const containerHeight = cmContainer.clientHeight;
-                    const scrollTop = cmContainer.scrollTop;
-                    if (cursorCoords.bottom > scrollTop + containerHeight - 50) {
-                        cmContainer.scrollTop = cursorCoords.bottom - containerHeight + 100;
-                    }
+            // Auto-scroll to follow cursor
+            const cursorCoords = cmEditor.cursorCoords(true, 'local');
+            if (cmContainer) {
+                const containerHeight = cmContainer.clientHeight;
+                const scrollTop = cmContainer.scrollTop;
+                if (cursorCoords.bottom > scrollTop + containerHeight - 50) {
+                    cmContainer.scrollTop = cursorCoords.bottom - containerHeight + 100;
                 }
             }
         }
         
-        i++;
     }, 16);
 }
 
