@@ -3665,8 +3665,9 @@ function toggleRightSidebar() {
 function updateRightSidebar() {
     if (!currentDocumentId) return;
     const sidebar = document.getElementById('rightSidebar');
-    if (!sidebar || sidebar.classList.contains('collapsed')) return;
-
+    if (!sidebar) return;
+    
+    // Always update data even if sidebar is collapsed - so it's fresh when opened
     const doc = documents.find(d => d.id === currentDocumentId);
     const project = projects.find(p => p.id === currentProjectId);
     const content = cmEditor ? cmEditor.getValue() : '';
@@ -3705,17 +3706,32 @@ function updateRightSidebar() {
 
     if (headers.length === 0) {
         tocContainer.innerHTML = '<span class="empty-message">No headers</span>';
-        return;
+        // Don't return - metadata has already been updated above
+    } else {
+        tocContainer.innerHTML = headers.map((h, i) => `
+            <div class="toc-item level-${h.level}" onclick="jumpToHeader(${i})" title="${h.text}">
+                ${h.text}
+            </div>
+        `).join('');
     }
-
-    tocContainer.innerHTML = headers.map((h, i) => `
-        <div class="toc-item level-${h.level}" onclick="jumpToHeader(${i})" title="${h.text}">
-            ${h.text}
-        </div>
-    `).join('');
 }
 
 function jumpToHeader(index) {
+    // Check if we're in preview mode
+    if (currentEditorMode === 'preview') {
+        const previewDiv = document.getElementById('preview');
+        if (!previewDiv) return;
+        
+        // Find all headers in the preview
+        const headers = previewDiv.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        if (headers[index]) {
+            // Scroll the header to the top of the preview container
+            previewDiv.scrollTop = headers[index].offsetTop - 20; // 20px top padding
+        }
+        return;
+    }
+    
+    // Markdown editor mode
     if (!cmEditor) return;
     const content = cmEditor.getValue();
     const lines = content.split('\n');
@@ -3723,7 +3739,14 @@ function jumpToHeader(index) {
     for (let i = 0; i < lines.length; i++) {
         if (/^#{1,6}\s+/.test(lines[i])) {
             if (count === index) {
-                cmEditor.scrollIntoView({ line: i, ch: 0 }, 100);
+                // Use 'top' alignment to scroll header to the top of the viewport
+                cmEditor.scrollIntoView({ line: i, ch: 0 }, 20);
+                
+                // Get the scroll info and manually adjust to ensure it's at the top
+                const scrollInfo = cmEditor.getScrollInfo();
+                const coords = cmEditor.charCoords({ line: i, ch: 0 }, 'local');
+                cmEditor.scrollTo(null, coords.top - 20); // 20px top padding
+                
                 cmEditor.setCursor({ line: i, ch: 0 });
                 cmEditor.focus();
                 return;

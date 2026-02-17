@@ -297,6 +297,15 @@
             </section>
         </div>
 
+        <!-- Projects View - shown instead of editor when Projects tab active -->
+        <div id="projects-view" style="flex:1; display:none; flex-direction:column; overflow:hidden; min-width:0; background:var(--bg-primary);">
+            <div style="padding:15px; border-bottom:1px solid var(--border-color); display:flex; align-items:center; gap:10px; background:var(--bg-secondary); flex-shrink:0;">
+                <h3 style="margin:0; font-size:15px; font-weight:600;">Your Projects</h3>
+                <button onclick="openNewProjectModal()" class="primary-btn" style="margin-left:auto;">➕ New Project</button>
+            </div>
+            <div id="projectsList" style="flex:1; overflow-y:auto; padding:15px;"></div>
+        </div>
+
         <!-- Right Sidebar -->
         <aside class="right-sidebar" id="rightSidebar">
             <div class="sidebar-header">
@@ -358,14 +367,6 @@
             </div>
         </aside>
 
-        <!-- Projects View - shown instead of editor when Projects tab active -->
-        <div id="projects-view" style="flex:1; display:none; flex-direction:column; overflow:hidden; min-width:0; background:var(--bg-primary);">
-            <div style="padding:15px; border-bottom:1px solid var(--border-color); display:flex; align-items:center; gap:10px; background:var(--bg-secondary); flex-shrink:0;">
-                <h3 style="margin:0; font-size:15px; font-weight:600;">Your Projects</h3>
-                <button onclick="openNewProjectModal()" class="primary-btn" style="margin-left:auto;">➕ New Project</button>
-            </div>
-            <div id="projectsList" style="flex:1; overflow-y:auto; padding:15px;"></div>
-        </div>
 
     </div>
 
