@@ -262,7 +262,7 @@
                             
                             
                             <button class="tb-btn tb-icon" onclick="switchEditorMode('markdown')" title="Markdown" id="markdownToggle">✏️</button>
-                            <button class="tb-btn tb-icon" onclick="switchEditorMode('preview')" title="Preview" id="previewToggle">👁</button>
+                            <button class="tb-btn tb-icon" onclick="switchEditorMode('preview')" title="Preview (Editable)" id="previewToggle">👁</button>
                             <button class="tb-btn tb-icon" onclick="toggleFullScreen()" title="Full Screen">⛶</button>
                         </div>
                         
@@ -739,12 +739,35 @@
                     </label>
 
                     <label>
-                        User Prompt:
+                        User Prompt (Continue):
                         <textarea id="customUserPrompt" rows="5" placeholder="User prompt..."></textarea>
                     </label>
 
                     <button onclick="saveCustomPrompts()" class="primary-btn" style="margin-top: 10px;">💾 Save Custom
                         Prompts</button>
+                </div>
+
+                <div class="settings-section">
+                    <div class="section-header">
+                        <h4>✨ Continue Button — Text Sent to AI</h4>
+                    </div>
+                    <p class="settings-hint">This is the final instruction line sent when you click <strong>Continue</strong>. Edit it to change how the AI continues your story.</p>
+                    <label>
+                        Continue instruction:
+                        <textarea id="continueUserPromptInput" rows="3" placeholder="Please continue the story naturally from where it left off."></textarea>
+                    </label>
+                </div>
+
+                <div class="settings-section">
+                    <div class="section-header">
+                        <h4>🚀 Go Button — Text Sent to AI</h4>
+                    </div>
+                    <p class="settings-hint">This is the instruction sent when you click <strong>Go</strong>. Edit it to change how the AI generates from your documents.</p>
+                    <label>
+                        Go instruction:
+                        <textarea id="goUserPromptInput" rows="3" placeholder="Based on all the instructions and context provided, write the article now."></textarea>
+                    </label>
+                    <button onclick="saveCustomPrompts()" class="primary-btn" style="margin-top: 10px;">💾 Save All Prompts</button>
                 </div>
             </div>
 

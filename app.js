@@ -13,6 +13,8 @@ let settings = {
     favoriteModels: [],
     customSystemPrompt: null,
     customUserPrompt: null,
+    continueUserPrompt: null,
+    goUserPrompt: null,
     lastUsedModel: 'anthropic/claude-3.5-sonnet',
     lastTemperature: 0.7,
     lastTokenCount: 2048,
@@ -84,6 +86,9 @@ function togglePreview() {
     }
 }
 
+// Flag to prevent feedback loop when we programmatically update preview innerHTML
+let _previewUpdating = false;
+
 // Update markdown preview
 function updatePreview() {
     let markdown = cmEditor.getValue();
@@ -96,7 +101,50 @@ function updatePreview() {
     
     const html = marked.parse(markdown);
     const clean = DOMPurify.sanitize(html);
+    
+    _previewUpdating = true;
     document.getElementById('preview').innerHTML = clean;
+    _previewUpdating = false;
+}
+
+// Initialize editable preview — called once after DOM ready
+function initEditablePreview() {
+    const previewDiv = document.getElementById('preview');
+    if (!previewDiv) return;
+
+    // Make it editable
+    previewDiv.contentEditable = 'true';
+    previewDiv.spellcheck = true;
+
+    let _previewSyncTimer = null;
+
+    previewDiv.addEventListener('input', () => {
+        // Ignore programmatic updates
+        if (_previewUpdating) return;
+
+        clearTimeout(_previewSyncTimer);
+        _previewSyncTimer = setTimeout(() => {
+            // Convert preview HTML → markdown and push to CodeMirror
+            const html = previewDiv.innerHTML;
+            const md = htmlToMarkdown(html);
+
+            _previewUpdating = true;
+            const scrollInfo = cmEditor.getScrollInfo();
+            cmEditor.setValue(md);
+            cmEditor.scrollTo(scrollInfo.left, scrollInfo.top);
+            hasUnsavedChanges = true;
+            updateWordCount();
+            resetAutoSaveTimer();
+            _previewUpdating = false;
+        }, 400);
+    });
+
+    // Escape key exits preview mode back to markdown
+    previewDiv.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            switchEditorMode('markdown');
+        }
+    });
 }
 
 // Get editor text
@@ -474,6 +522,9 @@ window.onload = async function() {
     }
 
     initializeFloatingToolbarVisibility();
+
+    // Initialize editable preview
+    initEditablePreview();
 };
 
 /* ========== API KEY MANAGEMENT ========== */
@@ -1538,6 +1589,10 @@ Generate approximately {TOKENS_TO_GENERATE} tokens that naturally continue the n
 
 const DEFAULT_USER_PROMPT = `Here is the story so far:\n\n{RECENT_TEXT}\n\nPlease continue the story naturally from where it left off.`;
 
+const DEFAULT_CONTINUE_USER_PROMPT = `Please continue the story naturally from where it left off.`;
+
+const DEFAULT_GO_USER_PROMPT = `Based on all the instructions and context provided, write the article now.`;
+
 const DEFAULT_AIISMS = `## Commonly used words:
 
 absolutely
@@ -2371,6 +2426,10 @@ function getUserPrompt(recentText) {
     let prompt = settings.customUserPrompt || DEFAULT_USER_PROMPT;
     prompt = prompt.replace('{RECENT_TEXT}', recentText);
     return prompt;
+}
+
+function getGoUserPrompt() {
+    return settings.goUserPrompt || DEFAULT_GO_USER_PROMPT;
 }
 
 // Preview for Continue button - shows fiction writing prompt
@@ -3381,7 +3440,7 @@ async function goGenerate() {
 
 ${fullInstructions}`;
 
-        const userPrompt = "Based on all the instructions and context provided, write the article now.";
+        const userPrompt = getGoUserPrompt();
 
         const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
@@ -3906,6 +3965,8 @@ function convertAllDocumentsToPlainText() {
 function openSettingsModal() {
     document.getElementById('customSystemPrompt').value = settings.customSystemPrompt || DEFAULT_SYSTEM_PROMPT;
     document.getElementById('customUserPrompt').value = settings.customUserPrompt || DEFAULT_USER_PROMPT;
+    document.getElementById('continueUserPromptInput').value = settings.continueUserPrompt || DEFAULT_CONTINUE_USER_PROMPT;
+    document.getElementById('goUserPromptInput').value = settings.goUserPrompt || DEFAULT_GO_USER_PROMPT;
     
     // Show current API key (masked)
     const settingsApiKeyField = document.getElementById('settingsApiKey');
@@ -3950,14 +4011,18 @@ function saveSettings() {
 function saveCustomPrompts() {
     const systemPrompt = document.getElementById('customSystemPrompt').value.trim();
     const userPrompt = document.getElementById('customUserPrompt').value.trim();
+    const continuePrompt = document.getElementById('continueUserPromptInput').value.trim();
+    const goPrompt = document.getElementById('goUserPromptInput').value.trim();
     
     if (!systemPrompt || !userPrompt) {
-        showToast('Prompts cannot be empty');
+        showToast('System and User prompts cannot be empty');
         return;
     }
     
     settings.customSystemPrompt = systemPrompt;
     settings.customUserPrompt = userPrompt;
+    settings.continueUserPrompt = continuePrompt || null;
+    settings.goUserPrompt = goPrompt || null;
     
     autoSave();
     showToast('Custom prompts saved! ✅');
@@ -3968,9 +4033,13 @@ function restoreDefaultPrompts() {
     
     settings.customSystemPrompt = null;
     settings.customUserPrompt = null;
+    settings.continueUserPrompt = null;
+    settings.goUserPrompt = null;
     
     document.getElementById('customSystemPrompt').value = DEFAULT_SYSTEM_PROMPT;
     document.getElementById('customUserPrompt').value = DEFAULT_USER_PROMPT;
+    document.getElementById('continueUserPromptInput').value = DEFAULT_CONTINUE_USER_PROMPT;
+    document.getElementById('goUserPromptInput').value = DEFAULT_GO_USER_PROMPT;
     
     autoSave();
     showToast('Default prompts restored! 🔄');
@@ -5544,7 +5613,7 @@ function refreshAIismHighlights() {
             
             // Add red squiggly underline using text-decoration
             const marker = cmEditor.markText(startPos, endPos, {
-                css: `text-decoration: underline wavy #16a34a; text-decoration-skip-ink: none;`,
+                css: `text-decoration: underline wavy red; text-decoration-skip-ink: none;`,
                 title: `AI-ism detected: "${match[0]}"`,
                 inclusiveLeft: false,
                 inclusiveRight: false
