@@ -5613,7 +5613,7 @@ function refreshAIismHighlights() {
             
             // Add red squiggly underline using text-decoration
             const marker = cmEditor.markText(startPos, endPos, {
-                css: `text-decoration: underline wavy red; text-decoration-skip-ink: none;`,
+                css: `text-decoration: underline wavy #16a34a; text-decoration-skip-ink: none;`,
                 title: `AI-ism detected: "${match[0]}"`,
                 inclusiveLeft: false,
                 inclusiveRight: false
