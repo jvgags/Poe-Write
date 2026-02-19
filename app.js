@@ -3,6 +3,7 @@
 // Global Variables
 let projects = [];
 let documents = [];
+let folders = []; // { id, projectId, name, parentId, order, collapsed }
 let settings = {
     theme: 'default',
     fontSize: 16,
@@ -593,6 +594,7 @@ async function autoSave() {
     const data = {
         projects,
         documents,
+        folders,
         settings,
         chatHistory,
         version: '3.0',
@@ -626,6 +628,7 @@ async function loadData() {
 
     projects = savedData?.projects || [];
     documents = savedData?.documents || [];
+    folders = savedData?.folders || [];
     settings = { ...settings, ...(savedData?.settings || {}) };
     chatHistory = savedData?.chatHistory || [];
 }
@@ -637,6 +640,7 @@ async function createBackup() {
         const data = {
             projects,
             documents,
+            folders,
             settings,
             chatHistory,
             version: '3.0',
@@ -674,6 +678,7 @@ async function restoreFromBackup(file) {
 
             projects = data.projects || [];
             documents = data.documents || [];
+            folders = data.folders || [];
             settings = { ...settings, ...(data.settings || {}) };
             chatHistory = data.chatHistory || [];
 
@@ -745,6 +750,7 @@ function deleteProject(id) {
 
     projects = projects.filter(p => p.id !== id);
     documents = documents.filter(d => d.projectId !== id);
+    folders = folders.filter(f => f.projectId !== id);
 
     if (currentProjectId === id) {
         currentProjectId = null;
@@ -947,6 +953,8 @@ function openNewDocumentModal() {
 function closeNewDocumentModal() {
     document.getElementById('newDocumentModal').style.display = 'none';
     document.getElementById('newDocumentForm').reset();
+    const folderField = document.getElementById('newDocumentFolderId');
+    if (folderField) folderField.value = '';
 }
 
 function createDocument(event) {
@@ -957,7 +965,10 @@ function createDocument(event) {
         return;
     }
 
-    const projectDocs = documents.filter(d => d.projectId === currentProjectId);
+    const folderIdVal = document.getElementById('newDocumentFolderId') ? document.getElementById('newDocumentFolderId').value : '';
+    const folderId = folderIdVal ? parseInt(folderIdVal) : null;
+
+    const projectDocs = documents.filter(d => d.projectId === currentProjectId && (d.folderId || null) === folderId);
     const maxOrder = projectDocs.length > 0 ? Math.max(...projectDocs.map(d => d.order || 0)) : -1;
 
     const doc = {
@@ -968,6 +979,7 @@ function createDocument(event) {
         content: '',
         wordCount: 0,
         enabled: true,
+        folderId: folderId,
         order: maxOrder + 1,
         created: new Date().toISOString(),
         updated: new Date().toISOString()
@@ -1031,6 +1043,7 @@ function duplicateDocument(id) {
         content: doc.content,
         wordCount: doc.wordCount,
         enabled: doc.enabled,
+        folderId: doc.folderId || null,
         created: new Date().toISOString(),
         updated: new Date().toISOString(),
         order: doc.order + 0.5 // Place it right after the original
@@ -1160,9 +1173,15 @@ function clearEditor() {
 
 // Replace the updateDocumentsList() function with this version that includes an Edit button
 
+/* ========== FOLDER-AWARE DOCUMENT LIST ========== */
+
+// State for the current drag operation (shared for docs and folders)
+let _dragType = null;   // 'doc' | 'folder'
+let _dragId   = null;   // id of the item being dragged
+
 function updateDocumentsList() {
     const container = document.getElementById('documentsList');
-    
+
     if (!currentProjectId) {
         container.innerHTML = '<p style="text-align:center; color:#999; padding:20px;">Select a project to manage documents</p>';
         return;
@@ -1170,194 +1189,482 @@ function updateDocumentsList() {
 
     let projectDocs = documents.filter(d => d.projectId === currentProjectId);
 
-    if (projectDocs.length === 0) {
+    if (projectDocs.length === 0 && folders.filter(f => f.projectId === currentProjectId).length === 0) {
         container.innerHTML = '<p style="text-align:center; color:#999; padding:20px;">No documents yet. Create one to get started!</p>';
+        updateMasterToggleState();
         return;
     }
 
-    // Ensure all documents have an order property
-    projectDocs.forEach((doc, index) => {
-        if (doc.order === undefined) {
-            doc.order = index;
-        }
-    });
+    // Ensure order fields exist
+    projectDocs.forEach((doc, i) => { if (doc.order === undefined) doc.order = i; });
+    folders.filter(f => f.projectId === currentProjectId)
+           .forEach((f, i) => { if (f.order === undefined) f.order = i; });
 
-    // Sort ONLY by order (no grouping)
-    projectDocs.sort((a, b) => a.order - b.order);
-
-    let html = '';
-    projectDocs.forEach(doc => {
-        const isActive = doc.id === currentDocumentId;
-        html += `
-            <div class="document-card ${doc.enabled ? 'enabled' : 'disabled'} ${isActive ? 'active-doc' : ''}" 
-                 draggable="true" 
-                 data-doc-id="${doc.id}"
-                 ondragstart="handleDragStart(event)" 
-                 ondragover="handleDragOver(event)" 
-                 ondrop="handleDrop(event)" 
-                 ondragend="handleDragEnd(event)"
-                 onclick="openDocumentInEditor(${doc.id})">
-                <div class="document-header">
-                    <div class="drag-handle" title="Drag to reorder">⋮⋮</div>
-                    <div class="document-title">
-                        <h4 title="${doc.title}"><span class="doc-type-icon">${getTypeIcon(doc.type)}</span> ${doc.title}</h4>
-                    </div>
-                    <div class="document-actions">
-                        <button class="icon-btn" onclick="event.stopPropagation(); duplicateDocument(${doc.id})" title="Duplicate">📋</button>
-                        <button class="icon-btn" onclick="event.stopPropagation(); openEditDocumentModal(${doc.id})" title="Edit">✏️</button>
-                        <button class="icon-btn delete-icon" onclick="event.stopPropagation(); deleteDocument(${doc.id})" title="Delete">🗑️</button>
-                    </div>
-                </div>
-                <div class="document-footer">
-                    <label class="toggle-container" onclick="event.stopPropagation();" title="${doc.enabled ? 'Enabled' : 'Disabled'}">
-                        <input type="checkbox" ${doc.enabled ? 'checked' : ''} onchange="toggleDocument(${doc.id})">
-                        <span class="toggle-slider"></span>
-                    </label>
-                    <span class="document-meta">${doc.wordCount || 0} words • ${doc.type}</span>
-                </div>
-            </div>
-        `;
-    });
-
-    container.innerHTML = html;
-
+    container.innerHTML = renderFolderLevel(null, 0);
     updateMasterToggleState();
 }
 
-// Drag and Drop handlers
-function handleDragStart(e) {
-    console.log('Drag start triggered');
-    draggedElement = e.target.closest('.document-card');
-    if (!draggedElement) {
-        console.log('No document-card found');
-        return;
+// Render one level of the tree (parentId = null → top level)
+function renderFolderLevel(parentId, depth) {
+    const indent = depth * 14;
+    let html = '';
+
+    // Folders at this level
+    const levelFolders = folders
+        .filter(f => f.projectId === currentProjectId && (f.parentId || null) === parentId)
+        .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    // Docs at this level
+    const levelDocs = documents
+        .filter(d => d.projectId === currentProjectId && (d.folderId || null) === parentId)
+        .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    // Render folders first
+    levelFolders.forEach(folder => {
+        const collapsed = folder.collapsed || false;
+        const childDocs = documents.filter(d => d.projectId === currentProjectId && (d.folderId || null) === folder.id);
+        const childFolders = folders.filter(f => f.projectId === currentProjectId && (f.parentId || null) === folder.id);
+        const hasChildren = childDocs.length > 0 || childFolders.length > 0;
+
+        html += `
+        <div class="folder-row"
+             data-folder-id="${folder.id}"
+             draggable="true"
+             ondragstart="handleFolderDragStart(event, ${folder.id})"
+             ondragover="handleTreeDragOver(event)"
+             ondrop="handleTreeDrop(event)"
+             ondragend="handleTreeDragEnd(event)"
+             style="padding-left: ${indent + 4}px">
+            <div class="folder-row-inner">
+                <span class="drag-handle folder-drag-handle" title="Drag folder">⋮⋮</span>
+                <button class="folder-collapse-btn" onclick="toggleFolderCollapse(${folder.id})" title="${collapsed ? 'Expand' : 'Collapse'}">
+                    ${collapsed ? '▶' : '▼'}
+                </button>
+                <span class="folder-icon">📁</span>
+                <span class="folder-name" ondblclick="startFolderRename(${folder.id})" title="Double-click to rename">${escapeHtml(folder.name)}</span>
+                <div class="folder-actions">
+                    <button class="icon-btn" onclick="event.stopPropagation(); openNewDocumentInFolder(${folder.id})" title="New document here">➕</button>
+                    <button class="icon-btn" onclick="event.stopPropagation(); openNewSubfolderModal(${folder.id})" title="New subfolder">📁</button>
+                    <button class="icon-btn" onclick="event.stopPropagation(); startFolderRename(${folder.id})" title="Rename">✏️</button>
+                    <button class="icon-btn delete-icon" onclick="event.stopPropagation(); deleteFolder(${folder.id})" title="Delete folder">🗑️</button>
+                </div>
+            </div>
+            <div class="folder-drop-zone ${collapsed ? 'hidden' : ''}" 
+                 data-folder-id="${folder.id}"
+                 ondragover="handleFolderDropZoneOver(event)"
+                 ondrop="handleFolderDropZoneDrop(event, ${folder.id})">
+            </div>
+        </div>`;
+
+        if (!collapsed) {
+            html += renderFolderLevel(folder.id, depth + 1);
+        }
+    });
+
+    // Render documents at this level
+    levelDocs.forEach(doc => {
+        const isActive = doc.id === currentDocumentId;
+        html += `
+        <div class="document-card ${doc.enabled ? 'enabled' : 'disabled'} ${isActive ? 'active-doc' : ''}"
+             draggable="true"
+             data-doc-id="${doc.id}"
+             data-folder-id="${doc.folderId || ''}"
+             ondragstart="handleDocDragStart(event, ${doc.id})"
+             ondragover="handleTreeDragOver(event)"
+             ondrop="handleTreeDrop(event)"
+             ondragend="handleTreeDragEnd(event)"
+             onclick="openDocumentInEditor(${doc.id})"
+             style="padding-left: ${indent + 8}px; margin-left: 0;">
+            <div class="document-header">
+                <div class="drag-handle" title="Drag to reorder">⋮⋮</div>
+                <div class="document-title">
+                    <h4 title="${escapeHtml(doc.title)}"><span class="doc-type-icon">${getTypeIcon(doc.type)}</span> ${escapeHtml(doc.title)}</h4>
+                </div>
+                <div class="document-actions">
+                    <button class="icon-btn" onclick="event.stopPropagation(); duplicateDocument(${doc.id})" title="Duplicate">📋</button>
+                    <button class="icon-btn" onclick="event.stopPropagation(); openEditDocumentModal(${doc.id})" title="Edit">✏️</button>
+                    <button class="icon-btn delete-icon" onclick="event.stopPropagation(); deleteDocument(${doc.id})" title="Delete">🗑️</button>
+                </div>
+            </div>
+            <div class="document-footer">
+                <label class="toggle-container" onclick="event.stopPropagation();" title="${doc.enabled ? 'Enabled' : 'Disabled'}">
+                    <input type="checkbox" ${doc.enabled ? 'checked' : ''} onchange="toggleDocument(${doc.id})">
+                    <span class="toggle-slider"></span>
+                </label>
+                <span class="document-meta">${doc.wordCount || 0} words • ${doc.type}</span>
+            </div>
+        </div>`;
+    });
+
+    // Drop zone for empty folder / end of list at this level (only at top level for ungrouped)
+    if (parentId === null) {
+        html += `<div class="doc-list-end-drop"
+                      ondragover="handleFolderDropZoneOver(event)"
+                      ondrop="handleFolderDropZoneDrop(event, null)"></div>`;
     }
-    
-    console.log('Dragging element:', draggedElement);
-    draggedElement.style.opacity = '0.4';
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/html', draggedElement.innerHTML);
+
+    return html;
 }
 
-function handleDragOver(e) {
-    if (e.preventDefault) {
-        e.preventDefault();
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+/* ========== FOLDER OPERATIONS ========== */
+
+function openNewFolderModal(parentId = null) {
+    if (!currentProjectId) { showToast('Select a project first'); return; }
+    document.getElementById('newFolderParentId').value = parentId || '';
+    document.getElementById('newFolderName').value = '';
+    document.getElementById('newFolderModal').style.display = 'flex';
+    document.getElementById('newFolderName').focus();
+}
+
+function openNewSubfolderModal(parentId) {
+    openNewFolderModal(parentId);
+}
+
+function closeNewFolderModal() {
+    document.getElementById('newFolderModal').style.display = 'none';
+}
+
+function createFolder(event) {
+    event.preventDefault();
+    const name = document.getElementById('newFolderName').value.trim();
+    if (!name) return;
+    const parentIdVal = document.getElementById('newFolderParentId').value;
+    const parentId = parentIdVal ? parseInt(parentIdVal) : null;
+
+    const projectFolders = folders.filter(f => f.projectId === currentProjectId && (f.parentId || null) === parentId);
+    const maxOrder = projectFolders.length > 0 ? Math.max(...projectFolders.map(f => f.order || 0)) : -1;
+
+    folders.push({
+        id: Date.now(),
+        projectId: currentProjectId,
+        name,
+        parentId,
+        order: maxOrder + 1,
+        collapsed: false
+    });
+
+    autoSave();
+    updateDocumentsList();
+    closeNewFolderModal();
+    showToast(`Folder "${name}" created! 📁`);
+}
+
+function deleteFolder(folderId) {
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return;
+
+    const childDocs = documents.filter(d => d.folderId === folderId);
+    const childFolders = folders.filter(f => f.parentId === folderId);
+    const hasChildren = childDocs.length > 0 || childFolders.length > 0;
+
+    let message = `Delete folder "${folder.name}"?`;
+    if (hasChildren) {
+        message += `\n\nThis folder contains ${childDocs.length} document(s) and ${childFolders.length} subfolder(s).\nAll contents will be moved to the parent level.`;
     }
-    e.dataTransfer.dropEffect = 'move';
-    
-    const target = e.target.closest('.document-card');
-    if (target && target !== draggedElement) {
-        const rect = target.getBoundingClientRect();
-        const midpoint = rect.top + rect.height / 2;
-        
-        // Clear all borders first
-        document.querySelectorAll('.document-card').forEach(card => {
-            if (card && card.style) {
-                card.style.borderTop = '';
-                card.style.borderBottom = '';
-            }
+
+    if (!confirm(message)) return;
+
+    // Move children up one level
+    const newParentId = folder.parentId || null;
+    childDocs.forEach(d => { d.folderId = newParentId; });
+
+    // Recursively move subfolders up
+    function reparentFolders(pid, newPid) {
+        folders.filter(f => f.parentId === pid).forEach(f => {
+            f.parentId = newPid;
         });
-        
-        if (e.clientY < midpoint) {
+    }
+    reparentFolders(folderId, newParentId);
+
+    folders = folders.filter(f => f.id !== folderId);
+    autoSave();
+    updateDocumentsList();
+    showToast('Folder deleted');
+}
+
+function toggleFolderCollapse(folderId) {
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return;
+    folder.collapsed = !folder.collapsed;
+    autoSave();
+    updateDocumentsList();
+}
+
+// Inline rename
+function startFolderRename(folderId) {
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return;
+
+    // Find the folder-name span and replace it with an input
+    const rows = document.querySelectorAll(`.folder-row[data-folder-id="${folderId}"]`);
+    if (!rows.length) return;
+    const nameSpan = rows[0].querySelector('.folder-name');
+    if (!nameSpan) return;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = folder.name;
+    input.className = 'folder-rename-input';
+    input.onclick = e => e.stopPropagation();
+
+    const finish = () => {
+        const newName = input.value.trim();
+        if (newName && newName !== folder.name) {
+            folder.name = newName;
+            autoSave();
+            showToast('Folder renamed');
+        }
+        updateDocumentsList();
+    };
+
+    input.addEventListener('blur', finish);
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        if (e.key === 'Escape') { input.value = folder.name; input.blur(); }
+    });
+
+    nameSpan.replaceWith(input);
+    input.focus();
+    input.select();
+}
+
+// Open new doc modal pre-set to a folder
+function openNewDocumentInFolder(folderId) {
+    if (!currentProjectId) { showToast('Select a project first'); return; }
+    document.getElementById('newDocumentFolderId').value = folderId || '';
+    document.getElementById('documentModalTitle').textContent = 'Create New Document';
+    document.getElementById('newDocumentModal').style.display = 'flex';
+    document.getElementById('newDocumentTitle').focus();
+}
+
+/* ========== UNIFIED DRAG & DROP (docs + folders) ========== */
+
+function handleDocDragStart(event, docId) {
+    _dragType = 'doc';
+    _dragId   = docId;
+    const el = event.currentTarget;
+    el.style.opacity = '0.4';
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', String(docId));
+}
+
+function handleFolderDragStart(event, folderId) {
+    _dragType = 'folder';
+    _dragId   = folderId;
+    const el = event.currentTarget;
+    el.style.opacity = '0.4';
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', String(folderId));
+    event.stopPropagation();
+}
+
+function handleTreeDragOver(event) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+
+    // Clear all indicators
+    document.querySelectorAll('.document-card, .folder-row').forEach(el => {
+        el.style.borderTop = '';
+        el.style.borderBottom = '';
+    });
+
+    const card = event.target.closest('.document-card');
+    const folderRow = event.target.closest('.folder-row');
+    const target = card || folderRow;
+    if (!target) return;
+
+    const rect = target.getBoundingClientRect();
+    const mid  = rect.top + rect.height / 2;
+
+    if (folderRow && _dragType === 'doc') {
+        // Hovering a folder: highlight it as a drop target
+        folderRow.style.borderBottom = '2px solid var(--accent-primary)';
+    } else if (target) {
+        if (event.clientY < mid) {
             target.style.borderTop = '3px solid var(--accent-primary)';
         } else {
             target.style.borderBottom = '3px solid var(--accent-primary)';
         }
     }
-    
     return false;
 }
 
-function handleDrop(e) {
-    console.log('Drop triggered');
-    if (e.stopPropagation) {
-        e.stopPropagation();
-    }
-    
-    const target = e.target.closest('.document-card');
-    console.log('Drop target:', target);
-    console.log('Dragged element:', draggedElement);
-    
-    if (draggedElement && target && draggedElement !== target) {
-        const draggedId = parseInt(draggedElement.dataset.docId);
-        const targetId = parseInt(target.dataset.docId);
-        
-        console.log('Dragged ID:', draggedId, 'Target ID:', targetId);
-        
-        const draggedDoc = documents.find(d => d.id === draggedId);
-        const targetDoc = documents.find(d => d.id === targetId);
-        
-        if (draggedDoc && targetDoc && draggedDoc.projectId === targetDoc.projectId) {
-            // Get all docs in this project sorted by current order
-            const projectDocs = documents
-                .filter(d => d.projectId === draggedDoc.projectId)
-                .sort((a, b) => (a.order || 0) - (b.order || 0));
-            
-            // Find current positions
-            const draggedIndex = projectDocs.findIndex(d => d.id === draggedId);
-            const targetIndex = projectDocs.findIndex(d => d.id === targetId);
-            
-            console.log('Dragged index:', draggedIndex, 'Target index:', targetIndex);
-            
-            // Remove dragged doc
-            const [removed] = projectDocs.splice(draggedIndex, 1);
-            
-            // Determine insert position based on mouse position
-            const rect = target.getBoundingClientRect();
-            const midpoint = rect.top + rect.height / 2;
-            let insertIndex = targetIndex;
-            
-            // If dragging from above to below, adjust index
-            if (draggedIndex < targetIndex) {
-                insertIndex = e.clientY < midpoint ? targetIndex - 1 : targetIndex;
-            } else {
-                insertIndex = e.clientY < midpoint ? targetIndex : targetIndex + 1;
-            }
-            
-            console.log('Insert index:', insertIndex);
-            
-            // Insert at new position
-            projectDocs.splice(insertIndex, 0, removed);
-            
-            // Reassign orders
-            projectDocs.forEach((doc, index) => {
-                doc.order = index;
-            });
-            
+function handleFolderDropZoneOver(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = 'move';
+    event.currentTarget.classList.add('drop-zone-active');
+}
+
+function handleTreeDrop(event) {
+    event.stopPropagation();
+
+    // Clear all indicators
+    document.querySelectorAll('.document-card, .folder-row').forEach(el => {
+        el.style.borderTop = '';
+        el.style.borderBottom = '';
+    });
+    document.querySelectorAll('.folder-drop-zone, .doc-list-end-drop').forEach(el => {
+        el.classList.remove('drop-zone-active');
+    });
+
+    const targetCard      = event.target.closest('.document-card');
+    const targetFolderRow = event.target.closest('.folder-row');
+
+    if (_dragType === 'doc') {
+        const draggedDoc = documents.find(d => d.id === _dragId);
+        if (!draggedDoc) { _dragType = null; _dragId = null; return false; }
+
+        if (targetFolderRow && !targetCard) {
+            // Drop onto a folder row: move doc into that folder
+            const targetFolderId = parseInt(targetFolderRow.dataset.folderId);
+            draggedDoc.folderId = targetFolderId;
             autoSave();
             updateDocumentsList();
-            console.log('Drag complete - list updated');
+        } else if (targetCard) {
+            // Reorder within same level
+            const targetDocId = parseInt(targetCard.dataset.docId);
+            if (targetDocId === _dragId) { _dragType = null; _dragId = null; return false; }
+            const targetDoc = documents.find(d => d.id === targetDocId);
+            if (!targetDoc || targetDoc.projectId !== draggedDoc.projectId) { _dragType = null; _dragId = null; return false; }
+
+            // Move dragged doc to same folder as target
+            draggedDoc.folderId = targetDoc.folderId || null;
+
+            // Reorder
+            const sameLevelDocs = documents
+                .filter(d => d.projectId === currentProjectId && (d.folderId || null) === (targetDoc.folderId || null))
+                .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+            const dragIdx   = sameLevelDocs.findIndex(d => d.id === _dragId);
+            const targetIdx = sameLevelDocs.findIndex(d => d.id === targetDocId);
+            if (dragIdx === -1) { sameLevelDocs.push(draggedDoc); }
+            else { sameLevelDocs.splice(dragIdx, 1); }
+
+            const rect = targetCard.getBoundingClientRect();
+            const insertAfter = event.clientY >= rect.top + rect.height / 2;
+            let newIdx = sameLevelDocs.findIndex(d => d.id === targetDocId);
+            if (insertAfter) newIdx++;
+            sameLevelDocs.splice(newIdx, 0, draggedDoc);
+            sameLevelDocs.forEach((d, i) => { d.order = i; });
+
+            autoSave();
+            updateDocumentsList();
+        }
+    } else if (_dragType === 'folder') {
+        const draggedFolder = folders.find(f => f.id === _dragId);
+        if (!draggedFolder) { _dragType = null; _dragId = null; return false; }
+
+        if (targetFolderRow && !targetCard) {
+            const targetFolderId = parseInt(targetFolderRow.dataset.folderId);
+            if (targetFolderId === _dragId) { _dragType = null; _dragId = null; return false; }
+
+            // Prevent dropping a folder into its own descendant
+            if (isFolderDescendant(targetFolderId, _dragId)) {
+                showToast("Can't move a folder into its own subfolder");
+                _dragType = null; _dragId = null;
+                return false;
+            }
+
+            const targetFolder = folders.find(f => f.id === targetFolderId);
+            const rect = targetFolderRow.getBoundingClientRect();
+            const mid  = rect.top + rect.height / 2;
+
+            if (event.clientY >= mid - 10 && event.clientY <= mid + 10) {
+                // Drop onto centre: make it a subfolder
+                draggedFolder.parentId = targetFolderId;
+            } else {
+                // Drop above/below: reorder at same level as target
+                draggedFolder.parentId = targetFolder.parentId || null;
+                const sameLevelFolders = folders
+                    .filter(f => f.projectId === currentProjectId && (f.parentId || null) === (targetFolder.parentId || null) && f.id !== _dragId)
+                    .sort((a, b) => (a.order || 0) - (b.order || 0));
+                const targetIdx = sameLevelFolders.findIndex(f => f.id === targetFolderId);
+                const insertAfter = event.clientY >= mid;
+                const insertIdx = insertAfter ? targetIdx + 1 : targetIdx;
+                sameLevelFolders.splice(insertIdx, 0, draggedFolder);
+                sameLevelFolders.forEach((f, i) => { f.order = i; });
+            }
+
+            autoSave();
+            updateDocumentsList();
         }
     }
-    
-    // Clear border indicators
-    document.querySelectorAll('.document-card').forEach(card => {
-        if (card && card.style) {
-            card.style.borderTop = '';
-            card.style.borderBottom = '';
-        }
-    });
-    
+
+    _dragType = null;
+    _dragId   = null;
     return false;
 }
 
-function handleDragEnd(e) {
-    console.log('Drag end triggered');
-    if (draggedElement && draggedElement.style) {
-        draggedElement.style.opacity = '1';
-    }
-    
-    // Clear all border indicators
-    document.querySelectorAll('.document-card').forEach(card => {
-        if (card && card.style) {
-            card.style.borderTop = '';
-            card.style.borderBottom = '';
-        }
+function handleFolderDropZoneDrop(event, targetFolderId) {
+    event.stopPropagation();
+    document.querySelectorAll('.folder-drop-zone, .doc-list-end-drop').forEach(el => {
+        el.classList.remove('drop-zone-active');
     });
-    
-    draggedElement = null;
-    console.log('Drag cleanup complete');
+
+    if (_dragType === 'doc') {
+        const draggedDoc = documents.find(d => d.id === _dragId);
+        if (draggedDoc) {
+            draggedDoc.folderId = targetFolderId;
+            // Put it at end of that level
+            const sameLevelDocs = documents.filter(d =>
+                d.projectId === currentProjectId && (d.folderId || null) === targetFolderId && d.id !== _dragId
+            );
+            draggedDoc.order = sameLevelDocs.length;
+            autoSave();
+            updateDocumentsList();
+        }
+    } else if (_dragType === 'folder') {
+        const draggedFolder = folders.find(f => f.id === _dragId);
+        if (draggedFolder && targetFolderId !== _dragId && !isFolderDescendant(targetFolderId, _dragId)) {
+            draggedFolder.parentId = targetFolderId;
+            autoSave();
+            updateDocumentsList();
+        }
+    }
+
+    _dragType = null;
+    _dragId   = null;
 }
+
+function handleTreeDragEnd(event) {
+    event.currentTarget.style.opacity = '1';
+    document.querySelectorAll('.document-card, .folder-row').forEach(el => {
+        el.style.borderTop = '';
+        el.style.borderBottom = '';
+    });
+    document.querySelectorAll('.folder-drop-zone, .doc-list-end-drop').forEach(el => {
+        el.classList.remove('drop-zone-active');
+    });
+    _dragType = null;
+    _dragId   = null;
+}
+
+// Check if checkId is a descendant of ancestorId
+function isFolderDescendant(checkId, ancestorId) {
+    if (!checkId) return false;
+    let current = folders.find(f => f.id === checkId);
+    while (current) {
+        if ((current.parentId || null) === ancestorId) return true;
+        current = folders.find(f => f.id === (current.parentId || null));
+    }
+    return false;
+}
+
+// Keep old drag handlers as stubs so any residual calls don't break
+function handleDragStart(e) { handleTreeDragOver(e); }
+function handleDragOver(e) { handleTreeDragOver(e); }
+function handleDrop(e) { handleTreeDrop(e); }
+function handleDragEnd(e) { handleTreeDragEnd(e); }
 
 function getTypeIcon(type) {
     const icons = {

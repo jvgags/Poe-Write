@@ -113,6 +113,7 @@
                     <option value="">No Project Selected</option>
                 </select>
                 <button class="icon-btn" onclick="openNewDocumentModal()" title="New Document">➕</button>
+                <button class="icon-btn" onclick="openNewFolderModal()" title="New Folder">📁</button>
             </div>
 
             <!-- Main nav: Write / Projects -->
@@ -457,6 +458,7 @@
         <div class="modal-content">
             <h3 id="documentModalTitle">Create New Document</h3>
             <form id="newDocumentForm" onsubmit="createDocument(event)">
+                <input type="hidden" id="newDocumentFolderId" value="">
                 <label>
                     Document Title:
                     <input type="text" id="newDocumentTitle" placeholder="Chapter 1: The Beginning" required>
@@ -516,6 +518,24 @@
                 <div class="modal-buttons">
                     <button type="submit" class="primary-btn">Save Changes</button>
                     <button type="button" onclick="closeEditDocumentModal()" class="secondary-btn">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- New Folder Modal -->
+    <div id="newFolderModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3>📁 Create Folder</h3>
+            <form id="newFolderForm" onsubmit="createFolder(event)">
+                <input type="hidden" id="newFolderParentId" value="">
+                <label>
+                    Folder Name:
+                    <input type="text" id="newFolderName" placeholder="e.g. Act One" required>
+                </label>
+                <div class="modal-buttons">
+                    <button type="submit" class="primary-btn">Create Folder</button>
+                    <button type="button" onclick="closeNewFolderModal()" class="secondary-btn">Cancel</button>
                 </div>
             </form>
         </div>
