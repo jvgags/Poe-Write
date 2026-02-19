@@ -931,6 +931,14 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
+    min-width: 0;
+}
+
+/* Left side must grow and constrain its children */
+.document-info-header > *:first-child {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .document-type-badge {
@@ -950,6 +958,59 @@ body {
     margin: 0;
     color: var(--accent-primary);
     font-size: 20px;
+    cursor: default;
+}
+
+.document-info-title-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.document-title-editable {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.doc-rename-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    opacity: 0;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: opacity 0.15s;
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+}
+
+.document-info:hover .doc-rename-btn {
+    opacity: 1;
+}
+
+.doc-rename-btn:hover {
+    color: var(--accent-primary);
+    background: var(--bg-hover, var(--bg-tertiary));
+}
+
+.document-title-input {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent-primary);
+    background: var(--bg-primary);
+    border: 2px solid var(--accent-primary);
+    border-radius: 6px;
+    padding: 2px 8px;
+    outline: none;
+    font-family: inherit;
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 /* Toolbar */

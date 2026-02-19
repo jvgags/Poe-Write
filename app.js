@@ -1143,6 +1143,65 @@ function loadDocumentToEditor() {
     setTimeout(updateRightSidebar, 100);
 }
 
+function startDocumentTitleRename() {
+    if (!currentDocumentId) return;
+
+    const titleEl = document.getElementById('documentTitle');
+    const renameBtn = document.querySelector('.doc-rename-btn');
+    if (!titleEl || titleEl.tagName === 'INPUT') return; // already editing
+
+    const doc = documents.find(d => d.id === currentDocumentId);
+    if (!doc) return;
+
+    const currentTitle = doc.title;
+
+    // Replace h2 with an input
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentTitle;
+    input.id = 'documentTitle';
+    input.className = 'document-title-input';
+
+    const save = () => {
+        const newTitle = input.value.trim();
+
+        // Restore h2
+        const h2 = document.createElement('h2');
+        h2.id = 'documentTitle';
+        h2.title = 'Double-click to rename';
+        h2.ondblclick = startDocumentTitleRename;
+
+        if (newTitle && newTitle !== currentTitle) {
+            doc.title = newTitle;
+            doc.updated = new Date().toISOString();
+            autoSave();
+            updateDocumentsList();
+            updateProjectsList();
+            showToast('Document renamed');
+            h2.textContent = newTitle;
+        } else {
+            h2.textContent = currentTitle;
+        }
+
+        input.replaceWith(h2);
+        if (renameBtn) renameBtn.style.display = '';
+    };
+
+    input.addEventListener('blur', save);
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        if (e.key === 'Escape') { input.value = currentTitle; input.blur(); }
+    });
+
+    titleEl.replaceWith(input);
+    if (renameBtn) renameBtn.style.display = 'none'; // hide pencil while editing
+    input.focus();
+    input.select();
+    // Scroll to the start so the full name is visible from the left
+    input.setSelectionRange(0, input.value.length);
+    input.scrollLeft = 0;
+}
+
 function saveDocument(showNotification = true) {
     if (!currentDocumentId) {
         if (showNotification) {
@@ -5130,13 +5189,13 @@ function exportProjectToMarkdown() {
     const project = projects.find(p => p.id === currentProjectId);
     if (!project) return;
 
-    // 2. Get only Chapter documents that are enabled, in order
-    const enabledDocs = documents
-        .filter(d => d.projectId === currentProjectId && d.enabled)
+    // 2. Get only Chapter-type documents that are enabled, sorted by their order
+    const chapters = documents
+        .filter(d => d.projectId === currentProjectId && d.enabled && d.type === 'Chapter')
         .sort((a, b) => (a.order || 0) - (b.order || 0));
 
-    if (enabledDocs.length === 0) {
-        showToast('No enabled documents to export.');
+    if (chapters.length === 0) {
+        showToast('No enabled Chapter documents to export.');
         return;
     }
 
@@ -5148,8 +5207,8 @@ function exportProjectToMarkdown() {
     }
     fullText += `\n---\n\n`;
 
-    enabledDocs.forEach((doc, idx) => {
-        // Document title as a heading
+    chapters.forEach((doc, idx) => {
+        // Chapter title as a heading
         fullText += `## ${doc.title}\n\n`;
 
         // Content is already Markdown; strip ==highlight== markers to plain text
@@ -5158,8 +5217,8 @@ function exportProjectToMarkdown() {
 
         fullText += content.trim();
 
-        // Separator between documents (skip after last)
-        if (idx < enabledDocs.length - 1) {
+        // Separator between chapters (skip after last)
+        if (idx < chapters.length - 1) {
             fullText += `\n\n\n---\n\n\n`;
         } else {
             fullText += `\n`;
@@ -5179,7 +5238,7 @@ function exportProjectToMarkdown() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    showToast(`Exported ${enabledDocs.length} document${enabledDocs.length !== 1 ? 's' : ''} 📚`);
+    showToast(`Exported ${chapters.length} chapter${chapters.length !== 1 ? 's' : ''} 📚`);
     closeMenu();
 }
 

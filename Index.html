@@ -173,9 +173,12 @@
             <section class="editor-panel-new">
                     <div class="document-info" id="documentInfo" style="display:none;">
                         <div class="document-info-header">
-                            <div>
+                            <div class="document-info-title-row">
                                 <span class="document-type-badge" id="documentType">Document</span>
-                                <h2 id="documentTitle">Document Title</h2>
+                                <div class="document-title-editable">
+                                    <h2 id="documentTitle" ondblclick="startDocumentTitleRename()" title="Double-click to rename">Document Title</h2>
+                                    <button class="doc-rename-btn" onclick="startDocumentTitleRename()" title="Rename document">✏️</button>
+                                </div>
                             </div>
                             <div class="document-meta">
                                 <span id="documentWordCount">0 words</span>
