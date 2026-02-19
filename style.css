@@ -952,6 +952,7 @@ body {
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 6px;
+    width: fit-content;
 }
 
 .document-info h2 {
