@@ -105,6 +105,9 @@ function updatePreview() {
     _previewUpdating = true;
     document.getElementById('preview').innerHTML = clean;
     _previewUpdating = false;
+
+    // Apply AI-ism squiggles to the rendered preview
+    applyPreviewAIismHighlights();
 }
 
 // Initialize editable preview — called once after DOM ready
@@ -452,7 +455,7 @@ window.onload = async function() {
             saveSettings();
             refreshHighlightMarkers();
             if (currentEditorMode === 'preview') {
-                updatePreview();
+                updatePreviewHighlightColors(e.target.value);
             }
         });
     }
@@ -3695,6 +3698,10 @@ function insertMarkdown(type) {
             break;
             
         case 'highlight':
+            if (currentEditorMode === 'preview') {
+                applyHighlightInPreview();
+                return; // applyHighlightInPreview handles focus/save itself
+            }
             if (selection) {
                 const color = getHighlightColor();
                 // Wrap selection in == markers (stored in file)
@@ -3910,6 +3917,9 @@ function htmlToMarkdown(html) {
     // Images
     markdown = markdown.replace(/<img[^>]*src=["']([^"']*)["'][^>]*alt=["']([^"']*)["'][^>]*>/gi, '![$2]($1)');
     markdown = markdown.replace(/<img[^>]*src=["']([^"']*)["'][^>]*>/gi, '![]($1)');
+    
+    // Highlight marks → ==text== (must come before generic tag removal)
+    markdown = markdown.replace(/<mark[^>]*>(.*?)<\/mark>/gi, '==$1==');
     
     // Remove remaining HTML tags
     markdown = markdown.replace(/<[^>]+>/g, '');
@@ -5439,6 +5449,114 @@ function updateFloatingToolbarVisibility() {
 
 /* ========== HIGHLIGHT MARKER FUNCTIONS ========== */
 
+/* ========== PREVIEW MODE HIGHLIGHT FUNCTIONS ========== */
+
+// Apply highlight to selected text in preview mode
+function applyHighlightInPreview() {
+    const previewDiv = document.getElementById('preview');
+    if (!previewDiv) return;
+
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+        showToast('Select text to highlight');
+        return;
+    }
+
+    const range = sel.getRangeAt(0);
+
+    // Ensure the selection is inside the preview div
+    if (!previewDiv.contains(range.commonAncestorContainer)) {
+        showToast('Select text inside the preview to highlight');
+        return;
+    }
+
+    const color = getHighlightColor();
+
+    // Create a <mark> element with the chosen color
+    const mark = document.createElement('mark');
+    mark.style.backgroundColor = color;
+
+    try {
+        // surroundContents works perfectly when selection doesn't cross element boundaries
+        range.surroundContents(mark);
+    } catch (e) {
+        // If the selection crosses element boundaries, extract + wrap manually
+        const fragment = range.extractContents();
+        mark.appendChild(fragment);
+        range.insertNode(mark);
+    }
+
+    // Collapse selection to avoid confusion
+    sel.removeAllRanges();
+
+    // Sync the updated preview HTML back to CodeMirror
+    syncPreviewToCodeMirror();
+    showToast('Highlighted! 🖍️');
+    hasUnsavedChanges = true;
+}
+
+// Remove highlight from the <mark> element at the current cursor position in preview
+function removeHighlightInPreview() {
+    const previewDiv = document.getElementById('preview');
+    if (!previewDiv) return;
+
+    const sel = window.getSelection();
+    let targetMark = null;
+
+    if (sel && sel.rangeCount > 0) {
+        // Walk up from the anchor node to find a <mark> ancestor
+        let node = sel.getRangeAt(0).commonAncestorContainer;
+        if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
+        while (node && node !== previewDiv) {
+            if (node.tagName === 'MARK') { targetMark = node; break; }
+            node = node.parentNode;
+        }
+    }
+
+    if (!targetMark) {
+        showToast('Click inside a highlight to remove it');
+        return;
+    }
+
+    // Unwrap: replace the <mark> with its children
+    const parent = targetMark.parentNode;
+    while (targetMark.firstChild) {
+        parent.insertBefore(targetMark.firstChild, targetMark);
+    }
+    parent.removeChild(targetMark);
+
+    // Sync back to CodeMirror
+    syncPreviewToCodeMirror();
+    showToast('Highlight removed');
+    hasUnsavedChanges = true;
+}
+
+// Update all <mark> colors in preview when color picker changes
+function updatePreviewHighlightColors(color) {
+    const previewDiv = document.getElementById('preview');
+    if (!previewDiv) return;
+    previewDiv.querySelectorAll('mark').forEach(mark => {
+        mark.style.backgroundColor = color;
+    });
+    // Sync so the markdown stores the new color on next edit
+    syncPreviewToCodeMirror();
+}
+
+// Push current preview innerHTML into CodeMirror as markdown (shared sync helper)
+function syncPreviewToCodeMirror() {
+    const previewDiv = document.getElementById('preview');
+    if (!previewDiv) return;
+    const md = htmlToMarkdown(previewDiv.innerHTML);
+    _previewUpdating = true;
+    const scrollInfo = cmEditor.getScrollInfo();
+    cmEditor.setValue(md);
+    cmEditor.scrollTo(scrollInfo.left, scrollInfo.top);
+    hasUnsavedChanges = true;
+    updateWordCount();
+    resetAutoSaveTimer();
+    _previewUpdating = false;
+}
+
 let highlightMarkers = []; // Store all highlight markers
 
 // Refresh all highlight markers in markdown mode
@@ -5492,6 +5610,12 @@ function refreshHighlightMarkers() {
 // Remove highlight from selected text
 function removeHighlight() {
     if (!cmEditor) return;
+
+    // Preview mode: find and unwrap the <mark> containing the cursor/selection
+    if (currentEditorMode === 'preview') {
+        removeHighlightInPreview();
+        return;
+    }
     
     const selection = cmEditor.getSelection();
     if (!selection) {
@@ -5537,73 +5661,109 @@ function removeHighlight() {
 // Array to store AI-ism markers
 let aiismMarkers = [];
 
-// Refresh AI-ism highlights in the editor
-function refreshAIismHighlights() {
-    if (!cmEditor) return;
-    
-    // Clear existing AI-ism markers
-    aiismMarkers.forEach(marker => marker.clear());
-    aiismMarkers = [];
-    
-    // Only highlight if current document is a Chapter
-    const currentDoc = documents.find(d => d.id === currentDocumentId);
-    if (!currentDoc || currentDoc.type !== 'Chapter') return;
-    
-    // Get AI-isms list and parse it properly
+// Shared parser: reads settings and returns a clean array of AI-ism strings
+function getParsedAIisms() {
     const aiismsText = settings.aiismsList || DEFAULT_AIISMS;
     const aiisms = [];
-    
+
     aiismsText.split('\n').forEach(line => {
         line = line.trim();
-        
-        // Skip empty lines
         if (line.length === 0) return;
-        
-        // Skip markdown headings (lines starting with #)
         if (line.startsWith('#')) return;
-        
-        // Skip lines that are entirely bold (**text** or __text__)
         if (/^\*\*[^*]+\*\*$/.test(line)) return;
         if (/^__[^_]+__$/.test(line)) return;
-        
-        // Remove leading hyphen/dash and whitespace (for list items like "- word")
         line = line.replace(/^[-–—]\s*/, '');
-        
-        // If line contains commas, split by comma
         if (line.includes(',')) {
-            const items = line.split(',').map(item => item.trim());
-            items.forEach(item => {
+            line.split(',').map(item => item.trim()).forEach(item => {
                 if (item.length > 0) {
-                    // Remove quotes around the item
-                    item = item.replace(/^[""](.+)[""]$/, '$1');
-                    item = item.replace(/^"(.+)"$/, '$1');
+                    item = item.replace(/^[""](.+)[""]$/, '$1').replace(/^"(.+)"$/, '$1');
                     aiisms.push(item);
                 }
             });
         } else {
-            // Single item - remove quotes if present
-            line = line.replace(/^[""](.+)[""]$/, '$1');
-            line = line.replace(/^"(.+)"$/, '$1');
-            
-            // Remove parenthetical explanations like "(usually whispered)"
+            line = line.replace(/^[""](.+)[""]$/, '$1').replace(/^"(.+)"$/, '$1');
             line = line.replace(/\s*\([^)]+\)\s*$/, '');
-            
-            if (line.length > 0) {
-                aiisms.push(line);
-            }
+            if (line.length > 0) aiisms.push(line);
         }
     });
+
+    return aiisms;
+}
+
+// Apply AI-ism squiggles to the rendered preview div by walking text nodes
+function applyPreviewAIismHighlights() {
+    const previewDiv = document.getElementById('preview');
+    if (!previewDiv) return;
+
+    const currentDoc = documents.find(d => d.id === currentDocumentId);
+    if (!currentDoc || currentDoc.type !== 'Chapter') return;
+
+    const aiisms = getParsedAIisms();
+    if (aiisms.length === 0) return;
+
+    // Sort longest first to avoid partial matches on shorter overlapping terms
+    const sorted = [...aiisms].sort((a, b) => b.length - a.length);
+    const pattern = sorted.map(a => `\\b${a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).join('|');
+    const regex = new RegExp(pattern, 'gi');
+
+    function walkAndMark(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            const text = node.textContent;
+            if (!regex.test(text)) { regex.lastIndex = 0; return; }
+            regex.lastIndex = 0;
+
+            const frag = document.createDocumentFragment();
+            let lastIndex = 0;
+            let match;
+
+            while ((match = regex.exec(text)) !== null) {
+                if (match.index > lastIndex) {
+                    frag.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+                }
+                const span = document.createElement('span');
+                span.className = 'preview-aiism';
+                span.title = `AI-ism: "${match[0]}"`;
+                span.textContent = match[0];
+                frag.appendChild(span);
+                lastIndex = match.index + match[0].length;
+            }
+            if (lastIndex < text.length) {
+                frag.appendChild(document.createTextNode(text.slice(lastIndex)));
+            }
+
+            node.parentNode.replaceChild(frag, node);
+            return;
+        }
+
+        if (node.nodeType === Node.ELEMENT_NODE) {
+            if (node.classList && node.classList.contains('preview-aiism')) return;
+            if (['SCRIPT', 'STYLE'].includes(node.tagName)) return;
+        }
+
+        // Snapshot childNodes because we mutate in-place
+        Array.from(node.childNodes).forEach(child => walkAndMark(child));
+    }
+
+    walkAndMark(previewDiv);
+}
+
+// Refresh AI-ism highlights in the editor
+function refreshAIismHighlights() {
+    if (!cmEditor) return;
     
+    aiismMarkers.forEach(marker => marker.clear());
+    aiismMarkers = [];
+    
+    const currentDoc = documents.find(d => d.id === currentDocumentId);
+    if (!currentDoc || currentDoc.type !== 'Chapter') return;
+    
+    const aiisms = getParsedAIisms();
     if (aiisms.length === 0) return;
     
     const content = cmEditor.getValue();
     
-    // Iterate through each AI-ism
     aiisms.forEach(aiism => {
-        // Escape special regex characters
         const escapedAiism = aiism.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        
-        // Create regex for whole word or phrase matching (case-insensitive)
         const regex = new RegExp(`\\b${escapedAiism}\\b`, 'gi');
         let match;
         
@@ -5611,7 +5771,6 @@ function refreshAIismHighlights() {
             const startPos = cmEditor.posFromIndex(match.index);
             const endPos = cmEditor.posFromIndex(match.index + match[0].length);
             
-            // Add red squiggly underline using text-decoration
             const marker = cmEditor.markText(startPos, endPos, {
                 css: `text-decoration: underline wavy #16a34a; text-decoration-skip-ink: none;`,
                 title: `AI-ism detected: "${match[0]}"`,
