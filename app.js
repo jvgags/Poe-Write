@@ -21,7 +21,8 @@ let settings = {
     lastTokenCount: 2048,
     highlightColor: '#fff59d',
     customThemeColors: {},
-    aiismsList: null
+    aiismsList: null,
+    aiismsEnabled: true
 };
 
 let currentProjectId = null;
@@ -62,7 +63,10 @@ function switchEditorMode(mode) {
     const previewDiv = document.getElementById('preview');
     const markdownToggle = document.getElementById('markdownToggle');
     const previewToggle = document.getElementById('previewToggle');
-    
+
+    // Clear any active search highlights before switching modes
+    clearSearchHighlights();
+
     if (mode === 'markdown') {
         editorDiv.style.display = 'flex';
         previewDiv.style.display = 'none';
@@ -470,6 +474,9 @@ window.onload = async function() {
     
     // Initial highlight markers rendering
     refreshHighlightMarkers();
+
+    // Sync AI-isms toggle button to persisted setting
+    _syncAIismsToggleUI();
 
 
     // Temperature slider
@@ -5119,16 +5126,11 @@ function exportProjectToMarkdown() {
         showToast('Please select a project to export.');
         return;
     }
-    
-    if (!window.TurndownService) {
-        showToast('Export library missing. Check internet connection.');
-        return;
-    }
 
     const project = projects.find(p => p.id === currentProjectId);
     if (!project) return;
 
-    // 2. Get Enabled Documents & Sort
+    // 2. Get only Chapter documents that are enabled, in order
     const enabledDocs = documents
         .filter(d => d.projectId === currentProjectId && d.enabled)
         .sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -5138,57 +5140,47 @@ function exportProjectToMarkdown() {
         return;
     }
 
-    // 3. Initialize Converter
-    const turndownService = new TurndownService({
-        headingStyle: 'atx',      // Use # for headings
-        codeBlockStyle: 'fenced', // Use ``` for code
-        hr: '---'                 // Use --- for horizontal rules
-    });
-
-    // 4. Build the Content
+    // 3. Build the full Markdown text
+    // Documents are stored as Markdown already — no conversion needed.
     let fullText = `# ${project.title}\n`;
     if (project.description) {
-        fullText += `*${project.description}*\n`;
+        fullText += `\n*${project.description}*\n`;
     }
     fullText += `\n---\n\n`;
 
-    enabledDocs.forEach(doc => {
-        // Add Chapter Title
-        fullText += `# ${doc.title}\n\n`;
-        
-        // Convert HTML Content to Markdown
-        // We wrap in a try-catch just in case specific HTML breaks the parser
-        try {
-            const content = doc.content || '';
-            // Convert to MD
-            const markdown = turndownService.turndown(content);
-            fullText += markdown;
-        } catch (e) {
-            console.error(`Error converting doc ${doc.id}`, e);
-            fullText += `[Error converting content for: ${doc.title}]`;
-        }
+    enabledDocs.forEach((doc, idx) => {
+        // Document title as a heading
+        fullText += `## ${doc.title}\n\n`;
 
-        // Add spacing between chapters
-        fullText += `\n\n\n***\n\n\n`; 
+        // Content is already Markdown; strip ==highlight== markers to plain text
+        let content = doc.content || '';
+        content = content.replace(/==([^=]+)==/g, '$1');
+
+        fullText += content.trim();
+
+        // Separator between documents (skip after last)
+        if (idx < enabledDocs.length - 1) {
+            fullText += `\n\n\n---\n\n\n`;
+        } else {
+            fullText += `\n`;
+        }
     });
 
-    // 5. Trigger Download
-    const blob = new Blob([fullText], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    
-    // Clean filename
+    // 4. Trigger Download
+    const blob = new Blob([fullText], { type: 'text/markdown;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+
     const safeTitle = project.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    
-    a.href = url;
-    a.download = `${safeTitle}_full_draft.md`;
+    a.href     = url;
+    a.download = `${safeTitle}_export.md`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    showToast('Project exported as Markdown! 📚');
-    closeMenu(); // Close the sidebar menu if open
+    showToast(`Exported ${enabledDocs.length} document${enabledDocs.length !== 1 ? 's' : ''} 📚`);
+    closeMenu();
 }
 
 // Add these functions after the toggleDocument() function (around line 580)
@@ -5265,13 +5257,11 @@ function updateMasterToggleState() {
 function toggleSearchReplace() {
     const bar = document.getElementById('searchReplaceBar');
     const isVisible = bar.style.display !== 'none';
-    
+
     if (isVisible) {
-        // Closing search - clear all highlights
         clearSearchHighlights();
         bar.style.display = 'none';
     } else {
-        // Opening search
         bar.style.display = 'flex';
         document.getElementById('findInput').focus();
     }
@@ -5289,78 +5279,163 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
+/* ========== SEARCH ENGINE ========== */
+
+// Index of the currently-highlighted match (0-based across all matches)
+let _searchCurrentIdx = 0;
+// In preview mode, the span elements for each match
+let _previewSearchSpans = [];
+
 function updateSearchCount() {
     const query = document.getElementById('findInput').value;
     const countDisplay = document.getElementById('searchCount');
-    
-    // Clear previous markers
     clearSearchHighlights();
-    
-    if (!query) {
-        countDisplay.textContent = '';
-        return;
+    _searchCurrentIdx = 0;
+
+    if (!query) { countDisplay.textContent = ''; return; }
+
+    if (currentEditorMode === 'preview') {
+        _updateSearchCountPreview(query, countDisplay);
+    } else {
+        _updateSearchCountEditor(query, countDisplay);
     }
-    
+}
+
+function _updateSearchCountEditor(query, countDisplay) {
     const text = cmEditor.getValue();
     const matches = [];
     let index = text.indexOf(query);
-    
-    // Find all matches and highlight them
+
     while (index !== -1) {
         matches.push(index);
-        
-        // Add highlight marker
         const from = cmEditor.posFromIndex(index);
-        const to = cmEditor.posFromIndex(index + query.length);
-        const marker = cmEditor.markText(from, to, {
-            className: 'search-highlight'
-        });
-        searchMarkers.push(marker);
-        
+        const to   = cmEditor.posFromIndex(index + query.length);
+        searchMarkers.push(cmEditor.markText(from, to, { className: 'search-highlight' }));
         index = text.indexOf(query, index + 1);
     }
-    
+
     if (matches.length === 0) {
         countDisplay.textContent = '0 matches';
         countDisplay.style.color = '#999';
     } else {
-        // Find which match we're currently on
-        let currentMatch = 1;
+        // Keep lastSearchIndex compatible for findNext/findPrev
+        let cur = 1;
         for (let i = 0; i < matches.length; i++) {
-            if (matches[i] === lastSearchIndex) {
-                currentMatch = i + 1;
-                break;
-            }
+            if (matches[i] === lastSearchIndex) { cur = i + 1; break; }
         }
-        countDisplay.textContent = `${currentMatch} of ${matches.length}`;
+        countDisplay.textContent = `${cur} of ${matches.length}`;
         countDisplay.style.color = '#667eea';
     }
 }
 
+function _updateSearchCountPreview(query, countDisplay) {
+    const previewDiv = document.getElementById('preview');
+    if (!previewDiv) return;
+
+    // Walk text nodes and inject highlight spans
+    const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    _previewSearchSpans = [];
+
+    function walkTextNodes(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            const text = node.textContent;
+            if (!regex.test(text)) { regex.lastIndex = 0; return; }
+            regex.lastIndex = 0;
+
+            const frag = document.createDocumentFragment();
+            let last = 0, m;
+            while ((m = regex.exec(text)) !== null) {
+                if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+                const span = document.createElement('span');
+                span.className = 'search-highlight preview-search-match';
+                span.textContent = m[0];
+                span.dataset.matchIdx = String(_previewSearchSpans.length);
+                frag.appendChild(span);
+                _previewSearchSpans.push(span);
+                last = m.index + m[0].length;
+            }
+            if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+            node.parentNode.replaceChild(frag, node);
+            return;
+        }
+        if (node.nodeType === Node.ELEMENT_NODE) {
+            if (node.classList && (node.classList.contains('preview-search-match') || node.classList.contains('preview-aiism'))) return;
+            if (['SCRIPT','STYLE'].includes(node.tagName)) return;
+        }
+        Array.from(node.childNodes).forEach(walkTextNodes);
+    }
+
+    walkTextNodes(previewDiv);
+
+    if (_previewSearchSpans.length === 0) {
+        countDisplay.textContent = '0 matches';
+        countDisplay.style.color = '#999';
+    } else {
+        _setPreviewCurrentMatch(0);
+        countDisplay.textContent = `1 of ${_previewSearchSpans.length}`;
+        countDisplay.style.color = '#667eea';
+    }
+}
+
+// Highlight a specific match as "current" (bright) in preview
+function _setPreviewCurrentMatch(idx) {
+    _previewSearchSpans.forEach((s, i) => {
+        s.classList.toggle('search-highlight-current', i === idx);
+    });
+    if (_previewSearchSpans[idx]) {
+        _previewSearchSpans[idx].scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+    _searchCurrentIdx = idx;
+}
+
 function clearSearchHighlights() {
-    // Remove all search markers
-    searchMarkers.forEach(marker => marker.clear());
+    // Editor markers
+    searchMarkers.forEach(m => m.clear());
     searchMarkers = [];
+
+    // Preview spans — unwrap each back to plain text
+    _previewSearchSpans.forEach(span => {
+        if (span.parentNode) {
+            span.parentNode.replaceChild(document.createTextNode(span.textContent), span);
+        }
+    });
+    _previewSearchSpans = [];
+
+    // Also sweep any stragglers (e.g. from a previous render)
+    document.querySelectorAll('#preview .preview-search-match').forEach(span => {
+        if (span.parentNode) span.parentNode.replaceChild(document.createTextNode(span.textContent), span);
+    });
+
+    // Normalize text nodes that got fragmented
+    const previewDiv = document.getElementById('preview');
+    if (previewDiv) previewDiv.normalize();
 }
 
 function findNext() {
     const query = document.getElementById('findInput').value;
     if (!query) return;
 
+    if (currentEditorMode === 'preview') {
+        if (_previewSearchSpans.length === 0) { updateSearchCount(); return; }
+        const next = (_searchCurrentIdx + 1) % _previewSearchSpans.length;
+        _setPreviewCurrentMatch(next);
+        _updateCountDisplay(next + 1, _previewSearchSpans.length);
+        return;
+    }
+
     const text = cmEditor.getValue();
     let index = text.indexOf(query, lastSearchIndex + 1);
-    
-    if (index === -1) index = text.indexOf(query); // Wrap around to start
+    if (index === -1) index = text.indexOf(query);
 
     if (index !== -1) {
         const from = cmEditor.posFromIndex(index);
-        const to = cmEditor.posFromIndex(index + query.length);
+        const to   = cmEditor.posFromIndex(index + query.length);
         cmEditor.setSelection(from, to);
-        cmEditor.scrollIntoView({from, to});
+        cmEditor.scrollIntoView({ from, to });
         lastSearchIndex = index;
         updateSearchCount();
     } else {
-        showToast("No matches found");
+        showToast('No matches found');
     }
 }
 
@@ -5368,48 +5443,135 @@ function findPrev() {
     const query = document.getElementById('findInput').value;
     if (!query) return;
 
+    if (currentEditorMode === 'preview') {
+        if (_previewSearchSpans.length === 0) { updateSearchCount(); return; }
+        const prev = (_searchCurrentIdx - 1 + _previewSearchSpans.length) % _previewSearchSpans.length;
+        _setPreviewCurrentMatch(prev);
+        _updateCountDisplay(prev + 1, _previewSearchSpans.length);
+        return;
+    }
+
     const text = cmEditor.getValue();
     const searchArea = text.substring(0, lastSearchIndex);
     let index = searchArea.lastIndexOf(query);
-
-    if (index === -1) index = text.lastIndexOf(query); // Wrap around to end
+    if (index === -1) index = text.lastIndexOf(query);
 
     if (index !== -1) {
         const from = cmEditor.posFromIndex(index);
-        const to = cmEditor.posFromIndex(index + query.length);
+        const to   = cmEditor.posFromIndex(index + query.length);
         cmEditor.setSelection(from, to);
-        cmEditor.scrollIntoView({from, to});
+        cmEditor.scrollIntoView({ from, to });
         lastSearchIndex = index;
         updateSearchCount();
     }
 }
 
-function replaceCurrent() {
-    const findText = document.getElementById('findInput').value;
-    const replaceText = document.getElementById('replaceInput').value;
-    const selection = cmEditor.getSelection();
+function _updateCountDisplay(current, total) {
+    const countDisplay = document.getElementById('searchCount');
+    countDisplay.textContent = `${current} of ${total}`;
+    countDisplay.style.color = '#667eea';
+}
 
+function replaceCurrent() {
+    const findText    = document.getElementById('findInput').value;
+    const replaceText = document.getElementById('replaceInput').value;
+    if (!findText) return;
+
+    if (currentEditorMode === 'preview') {
+        if (_previewSearchSpans.length === 0) return;
+        const span = _previewSearchSpans[_searchCurrentIdx];
+        if (!span || !span.parentNode) return;
+
+        // Replace span with plain text
+        span.parentNode.replaceChild(document.createTextNode(replaceText), span);
+        _previewSearchSpans.splice(_searchCurrentIdx, 1);
+
+        // Renumber remaining spans
+        _previewSearchSpans.forEach((s, i) => { s.dataset.matchIdx = String(i); });
+
+        // Sync markdown
+        syncPreviewToCodeMirror();
+
+        if (_previewSearchSpans.length > 0) {
+            const nextIdx = Math.min(_searchCurrentIdx, _previewSearchSpans.length - 1);
+            _setPreviewCurrentMatch(nextIdx);
+            _updateCountDisplay(nextIdx + 1, _previewSearchSpans.length);
+        } else {
+            document.getElementById('searchCount').textContent = '0 matches';
+        }
+        return;
+    }
+
+    const selection = cmEditor.getSelection();
     if (selection && selection.length > 0) {
         cmEditor.replaceSelection(replaceText);
         updateSearchCount();
-        findNext(); // Move to next automatically
+        findNext();
     }
 }
 
 function replaceAll() {
-    const findText = document.getElementById('findInput').value;
+    const findText    = document.getElementById('findInput').value;
     const replaceText = document.getElementById('replaceInput').value;
     if (!findText) return;
 
-    let text = cmEditor.getValue();
-    const newText = text.split(findText).join(replaceText);
-    const occurrences = (text.length - newText.length) / (findText.length - replaceText.length || 1);
-    
+    // Always operate on the markdown source
+    const text    = cmEditor.getValue();
+    const escaped = findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex   = new RegExp(escaped, 'g');
+    const count   = (text.match(regex) || []).length;
+
+    if (count === 0) { showToast('No matches found'); return; }
+
+    const newText = text.replace(regex, replaceText);
     cmEditor.setValue(newText);
     lastSearchIndex = 0;
+
+    // If in preview mode, re-render so changes appear
+    if (currentEditorMode === 'preview') {
+        clearSearchHighlights();
+        updatePreview();
+    }
+
     updateSearchCount();
-    
-    showToast(`Replaced ${Math.floor(occurrences)} occurrences`);
+    showToast(`Replaced ${count} occurrence${count !== 1 ? 's' : ''}`);
+}
+
+/* ========== AI-ISMS TOGGLE ========== */
+
+function toggleAIisms() {
+    settings.aiismsEnabled = !settings.aiismsEnabled;
+    saveSettings();
+    _syncAIismsToggleUI();
+
+    if (settings.aiismsEnabled) {
+        // Re-apply to whichever mode is active
+        if (currentEditorMode === 'preview') {
+            updatePreview(); // re-renders and calls applyPreviewAIismHighlights
+        } else {
+            refreshAIismHighlights();
+        }
+        showToast('AI-ism detection on');
+    } else {
+        // Clear from both places
+        aiismMarkers.forEach(m => m.clear());
+        aiismMarkers = [];
+        document.querySelectorAll('#preview .preview-aiism').forEach(span => {
+            if (span.parentNode) span.parentNode.replaceChild(document.createTextNode(span.textContent), span);
+        });
+        const previewDiv = document.getElementById('preview');
+        if (previewDiv) previewDiv.normalize();
+        showToast('AI-ism detection off');
+    }
+}
+
+function _syncAIismsToggleUI() {
+    const btn = document.getElementById('aiismsToggleBtn');
+    if (!btn) return;
+    const on = settings.aiismsEnabled !== false;
+    btn.title = on ? 'AI-isms: ON (click to disable)' : 'AI-isms: OFF (click to enable)';
+    btn.classList.toggle('tb-active', on);
+    btn.style.opacity = on ? '1' : '0.4';
 }
 
 // REPLACE with your Google Apps Script Web App URL
@@ -6002,6 +6164,9 @@ function applyPreviewAIismHighlights() {
     const previewDiv = document.getElementById('preview');
     if (!previewDiv) return;
 
+    // Respect the toggle
+    if (settings.aiismsEnabled === false) return;
+
     const currentDoc = documents.find(d => d.id === currentDocumentId);
     if (!currentDoc || currentDoc.type !== 'Chapter') return;
 
@@ -6057,10 +6222,13 @@ function applyPreviewAIismHighlights() {
 // Refresh AI-ism highlights in the editor
 function refreshAIismHighlights() {
     if (!cmEditor) return;
-    
+
     aiismMarkers.forEach(marker => marker.clear());
     aiismMarkers = [];
-    
+
+    // Respect the toggle
+    if (settings.aiismsEnabled === false) return;
+
     const currentDoc = documents.find(d => d.id === currentDocumentId);
     if (!currentDoc || currentDoc.type !== 'Chapter') return;
     

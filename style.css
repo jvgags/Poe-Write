@@ -3829,9 +3829,27 @@ body.fullscreen-mode .markdown-preview {
     border-radius: 2px;
 }
 
+/* "Current" match in preview — stronger highlight + outline */
+.search-highlight-current {
+    background-color: #f59e0b !important;
+    outline: 2px solid #d97706;
+    border-radius: 2px;
+}
+
 [data-theme="dark"] .search-highlight,
 [data-theme="midnight"] .search-highlight {
     background-color: #9d7e00;
+}
+
+[data-theme="dark"] .search-highlight-current,
+[data-theme="midnight"] .search-highlight-current {
+    background-color: #b45309 !important;
+    outline-color: #92400e;
+}
+
+/* Toolbar button active/on state (e.g. AI-isms toggle) */
+.tb-btn.tb-active {
+    color: var(--accent-primary);
 }
 
 .CodeMirror-selectedtext {
