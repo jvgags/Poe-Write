@@ -4251,6 +4251,13 @@ function insertMarkdown(type) {
 
 // ========== RIGHT SIDEBAR ==========
 
+function toggleLeftSidebar() {
+    const sidebar = document.getElementById('leftSidebar');
+    if (!sidebar) return;
+    sidebar.classList.toggle('collapsed');
+    document.body.classList.toggle('left-sidebar-collapsed');
+}
+
 function toggleRightSidebar() {
     const sidebar = document.getElementById('rightSidebar');
     if (!sidebar) return;

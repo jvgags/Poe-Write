@@ -647,6 +647,23 @@ body {
     flex-direction: column;
     overflow: hidden;
     height: 100%;
+    transition: width 0.25s ease;
+}
+
+.sidebar-panel.collapsed {
+    width: 0;
+    border-right: none;
+}
+
+/* Left sidebar toggle button in top bar */
+#leftSidebarToggle {
+    margin-right: auto;
+    font-size: 12px;
+    transition: transform 0.25s ease;
+}
+
+body.left-sidebar-collapsed #leftSidebarToggle {
+    transform: rotate(180deg);
 }
 
 .sidebar-header {
