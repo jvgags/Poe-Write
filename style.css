@@ -3094,10 +3094,10 @@ body.expanded-mode .editor-layout-new {
 
 .floating-ai-toolbar {
     position: fixed;
-    bottom: 30px;
+    top: 60px;
     right: 30px;
     z-index: 1000;
-    display: flex; /* Will be controlled by JS */
+    display: flex;
     flex-direction: column;
     gap: 8px;
     transition: all 0.3s ease;
@@ -3140,7 +3140,7 @@ body.expanded-mode .editor-layout-new {
 /* Collapsed State */
 .floating-ai-toolbar.collapsed .toolbar-buttons {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(-20px);
     pointer-events: none;
     max-height: 0;
 }
@@ -3248,7 +3248,7 @@ body.expanded-mode .editor-layout-new {
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .floating-ai-toolbar {
-        bottom: 20px;
+        top: 60px;
         right: 20px;
     }
     
@@ -3266,7 +3266,7 @@ body.expanded-mode .editor-layout-new {
 
 .floating-ai-toolbar {
     position: fixed;
-    bottom: 30px;
+    top: 60px;
     right: 30px;
     z-index: 1000;
     display: flex;

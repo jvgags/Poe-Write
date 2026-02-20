@@ -2969,11 +2969,32 @@ function copyRequestPreview() {
         ? document.getElementById('requestPreviewContent').textContent
         : document.getElementById('documentsPreviewContent').textContent;
     
-    navigator.clipboard.writeText(content).then(() => {
-        showToast('Copied to clipboard! 📋');
-    }).catch(() => {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(content).then(() => {
+            showToast('Copied to clipboard! 📋');
+        }).catch(() => {
+            fallbackCopyText(content);
+        });
+    } else {
+        fallbackCopyText(content);
+    }
+}
+
+function fallbackCopyText(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    try {
+        const success = document.execCommand('copy');
+        showToast(success ? 'Copied to clipboard! 📋' : 'Failed to copy');
+    } catch (e) {
         showToast('Failed to copy');
-    });
+    }
+    document.body.removeChild(textarea);
 }
 
 function switchPreviewTab(tabName) {
@@ -5864,17 +5885,15 @@ function toggleAiToolbar() {
     
     toolbar.classList.toggle('collapsed');
     
-    // If expanding, check if there's space below
+    // If expanding, check if there's enough space below
     if (wasCollapsed) {
         setTimeout(() => {
             const rect = toolbar.getBoundingClientRect();
             const viewportHeight = window.innerHeight;
-            const spaceBelow = viewportHeight - rect.top;
-            const toolbarHeight = rect.height;
             
-            // If not enough space below, move it up
-            if (spaceBelow < toolbarHeight + 20) {
-                const newTop = Math.max(10, viewportHeight - toolbarHeight - 20);
+            // If toolbar overflows bottom, nudge it up
+            if (rect.bottom > viewportHeight - 10) {
+                const newTop = Math.max(10, viewportHeight - rect.height - 10);
                 toolbar.style.top = newTop + 'px';
                 toolbar.style.bottom = 'auto';
             }
@@ -5884,7 +5903,7 @@ function toggleAiToolbar() {
     // Check boundaries after animation completes
     setTimeout(() => {
         ensureToolbarVisible();
-    }, 350); // Match the CSS transition duration
+    }, 350);
 }
     
     document.addEventListener('mouseup', function() {
