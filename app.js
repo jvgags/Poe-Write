@@ -57,6 +57,61 @@ let db;
 /* ========== CODEMIRROR HELPER FUNCTIONS ========== */
 
 // Editor Mode Switching
+// --- Cursor sync helpers ---
+
+// Get the character offset of the caret in a contentEditable div
+function getPreviewCaretCharOffset(previewDiv) {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return 0;
+    const range = sel.getRangeAt(0);
+    const preRange = document.createRange();
+    preRange.selectNodeContents(previewDiv);
+    preRange.setEnd(range.startContainer, range.startOffset);
+    return preRange.toString().length;
+}
+
+// Set the caret in a contentEditable div at a given character offset
+function setPreviewCaretCharOffset(previewDiv, charOffset) {
+    const walker = document.createTreeWalker(previewDiv, NodeFilter.SHOW_TEXT, null, false);
+    let remaining = charOffset;
+    let node = null;
+    while ((node = walker.nextNode())) {
+        if (remaining <= node.textContent.length) {
+            const range = document.createRange();
+            range.setStart(node, remaining);
+            range.collapse(true);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+            // (scroll is handled separately by switchEditorMode)
+            return;
+        }
+        remaining -= node.textContent.length;
+    }
+    // Fallback: move to end
+    const range = document.createRange();
+    range.selectNodeContents(previewDiv);
+    range.collapse(false);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+}
+
+// Strip common markdown syntax to approximate rendered plain text length
+function stripMarkdownSyntax(md) {
+    return md
+        .replace(/!\[.*?\]\(.*?\)/g, '')
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        .replace(/```[\s\S]*?```/g, '')
+        .replace(/`[^`]+`/g, '')
+        .replace(/^#{1,6}\s+/gm, '')
+        .replace(/[*_]{1,3}([^*_]+)[*_]{1,3}/g, '$1')
+        .replace(/^>\s+/gm, '')
+        .replace(/^[-*+]\s+/gm, '')
+        .replace(/^\d+\.\s+/gm, '')
+        .replace(/==([^=]+)==/g, '$1');
+}
+
 function switchEditorMode(mode) {
     currentEditorMode = mode;
     const editorDiv = document.getElementById('editor');
@@ -68,17 +123,98 @@ function switchEditorMode(mode) {
     clearSearchHighlights();
 
     if (mode === 'markdown') {
+        // Capture caret + scroll position from preview before hiding it
+        let targetMdIndex = null;
+        let scrollRatio = null;
+        if (previewDiv && previewDiv.style.display !== 'none') {
+            try {
+                // Scroll ratio
+                const previewScrollHeight = previewDiv.scrollHeight - previewDiv.clientHeight;
+                scrollRatio = previewScrollHeight > 0
+                    ? previewDiv.scrollTop / previewScrollHeight
+                    : 0;
+
+                // Cursor ratio
+                const previewOffset = getPreviewCaretCharOffset(previewDiv);
+                const previewPlainText = previewDiv.innerText || '';
+                const mdText = cmEditor.getValue();
+                const ratio = previewPlainText.length > 0
+                    ? previewOffset / previewPlainText.length
+                    : 0;
+                targetMdIndex = Math.round(ratio * mdText.length);
+            } catch(e) { /* ignore */ }
+        }
+
         editorDiv.style.display = 'flex';
         previewDiv.style.display = 'none';
         if (markdownToggle) markdownToggle.classList.add('active');
         if (previewToggle) previewToggle.classList.remove('active');
-        if (cmEditor) cmEditor.refresh();
+        if (cmEditor) {
+            cmEditor.refresh();
+
+            // Restore cursor position
+            if (targetMdIndex !== null) {
+                try {
+                    const pos = cmEditor.posFromIndex(targetMdIndex);
+                    cmEditor.setCursor(pos);
+                } catch(e) { /* ignore */ }
+            }
+
+            // Restore scroll position
+            if (scrollRatio !== null) {
+                try {
+                    const cmScroller = editorDiv.querySelector('.CodeMirror-scroll');
+                    if (cmScroller) {
+                        const cmScrollHeight = cmScroller.scrollHeight - cmScroller.clientHeight;
+                        cmScroller.scrollTop = Math.round(scrollRatio * cmScrollHeight);
+                    }
+                } catch(e) { /* ignore */ }
+            }
+
+            cmEditor.focus();
+        }
     } else {
+        // Capture CM cursor + scroll before switching
+        let ratio = null;
+        let scrollRatio = null;
+        try {
+            const cursor = cmEditor.getCursor();
+            const mdOffset = cmEditor.indexFromPos(cursor);
+            const mdText = cmEditor.getValue();
+            ratio = mdText.length > 0 ? mdOffset / mdText.length : 0;
+
+            const cmScroller = editorDiv.querySelector('.CodeMirror-scroll');
+            if (cmScroller) {
+                const cmScrollHeight = cmScroller.scrollHeight - cmScroller.clientHeight;
+                scrollRatio = cmScrollHeight > 0
+                    ? cmScroller.scrollTop / cmScrollHeight
+                    : 0;
+            }
+        } catch(e) { /* ignore */ }
+
         editorDiv.style.display = 'none';
         previewDiv.style.display = 'block';
         if (markdownToggle) markdownToggle.classList.remove('active');
         if (previewToggle) previewToggle.classList.add('active');
         updatePreview();
+
+        requestAnimationFrame(() => {
+            try {
+                // Restore caret position
+                if (ratio !== null) {
+                    const previewPlainText = previewDiv.innerText || '';
+                    const previewOffset = Math.round(ratio * previewPlainText.length);
+                    previewDiv.focus();
+                    setPreviewCaretCharOffset(previewDiv, previewOffset);
+                }
+
+                // Restore scroll position (after caret is placed so layout is stable)
+                if (scrollRatio !== null) {
+                    const previewScrollHeight = previewDiv.scrollHeight - previewDiv.clientHeight;
+                    previewDiv.scrollTop = Math.round(scrollRatio * previewScrollHeight);
+                }
+            } catch(e) { /* ignore */ }
+        });
     }
 }
 
