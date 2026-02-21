@@ -372,7 +372,8 @@ body {
     top: 0;
     left: 0;
     right: 0;
-    height: 50px;
+    min-height: 38px;
+    max-height: 38px;
     background: var(--bg-secondary);
     color: var(--text-primary);
     display: grid;
@@ -536,9 +537,9 @@ body.right-sidebar-collapsed #rightSidebarToggle {
 /* Menu - Storyroot Style */
 .menu {
     position: fixed;
-    top: 50px;
+    top: 38px;
     left: -300px;
-    width: 260px;
+    width: 280px;
     height: calc(100vh - 50px);
     background: var(--bg-secondary);
     border-right: 1px solid var(--border-color);
