@@ -62,15 +62,27 @@
 
     <!-- Top Bar -->
     <div id="top-bar">
-        <div class="hamburger" id="hamburger">
-            <span></span><span></span><span></span>
+        <!-- Left zone: aligns over left sidebar -->
+        <div class="top-bar-left" id="topBarLeft">
+            <div class="hamburger" id="hamburger">
+                <span></span><span></span><span></span>
+            </div>
+            <h1>🪶 Poe Write</h1>
+            <button class="icon-btn top-bar-collapse-btn" id="leftSidebarToggle" onclick="toggleLeftSidebar()" title="Toggle Sidebar">◀</button>
         </div>
-        <h1>🪶 Poe Write</h1>
-        <div class="word-count-display">
-            <span id="wordCount">0</span> words
+
+        <!-- Center zone: aligns over editor, holds document tabs -->
+        <div class="top-bar-center">
+            <div id="documentTabsList" class="document-tabs-list"></div>
         </div>
-        <button class="icon-btn" id="leftSidebarToggle" onclick="toggleLeftSidebar()" title="Toggle Sidebar">◀</button>
-        <button class="icon-btn" id="rightSidebarToggle" onclick="toggleRightSidebar()" title="Toggle Document Info">▶</button>
+
+        <!-- Right zone: aligns over right sidebar -->
+        <div class="top-bar-right" id="topBarRight">
+            <button class="icon-btn top-bar-collapse-btn" id="rightSidebarToggle" onclick="toggleRightSidebar()" title="Toggle Document Info">▶</button>
+            <div class="word-count-display">
+                <span id="wordCount">0</span> words
+            </div>
+        </div>
     </div>
 
     <!-- Menu Overlay -->

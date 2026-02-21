@@ -40,6 +40,10 @@ let apiKey = localStorage.getItem('openrouterApiKey');
 let OPENROUTER_MODELS = [];
 let modelsLoaded = false;
 
+// Open document tabs
+let openTabs = []; // array of docIds in order
+let tabViewModes = {}; // docId -> 'markdown' | 'preview'
+
 let isStreaming = false;
 let streamingInterval = null;
 let generatedTextStartIndex = null;
@@ -114,6 +118,10 @@ function stripMarkdownSyntax(md) {
 
 function switchEditorMode(mode) {
     currentEditorMode = mode;
+    // Remember this mode for the current tab
+    if (currentDocumentId) {
+        tabViewModes[currentDocumentId] = mode;
+    }
     const editorDiv = document.getElementById('editor');
     const previewDiv = document.getElementById('preview');
     const markdownToggle = document.getElementById('markdownToggle');
@@ -513,6 +521,7 @@ window.onload = async function() {
         hasUnsavedChanges = true;
         updateWordCount();
         resetAutoSaveTimer();
+        renderDocumentTabs();
         
         // Update floating continue button after typing
         setTimeout(updateFloatingContinueButton, 100);
@@ -651,7 +660,9 @@ window.onload = async function() {
     if (settings.lastProjectId && settings.lastDocumentId) {
         currentProjectId = settings.lastProjectId;
         currentDocumentId = settings.lastDocumentId;
+        openTabs = [settings.lastDocumentId];
         loadDocumentToEditor();
+        renderDocumentTabs();
     }
 
      // Load chat history
@@ -939,6 +950,9 @@ function switchProject() {
     }
 
     // 5. Refresh Data & UI
+    openTabs = [];
+    tabViewModes = {};
+    renderDocumentTabs();
     autoSave();
     updateDocumentsList();
     updateMasterToggleState();
@@ -1161,6 +1175,10 @@ function deleteDocument(id) {
 
     documents = documents.filter(d => d.id !== id);
 
+    // Remove from open tabs
+    const tabIdx = openTabs.indexOf(id);
+    if (tabIdx !== -1) openTabs.splice(tabIdx, 1);
+
     if (currentDocumentId === id) {
         currentDocumentId = null;
         document.getElementById('editor').value = '';
@@ -1170,6 +1188,7 @@ function deleteDocument(id) {
     autoSave();
     updateDocumentsList();
     updateProjectsList();
+    renderDocumentTabs();
     showToast('Document deleted');
 }
 
@@ -1217,15 +1236,80 @@ function toggleDocument(id) {
 }
 
 function openDocumentInEditor(docId) {
-    // Save current document before switching
+    // Save current document and its view mode before switching
     if (currentDocumentId && hasUnsavedChanges) {
         saveDocument(false);
+    }
+    if (currentDocumentId) {
+        tabViewModes[currentDocumentId] = currentEditorMode;
+    }
+
+    // Add to tabs if not already open
+    if (!openTabs.includes(docId)) {
+        openTabs.push(docId);
     }
 
     currentDocumentId = docId;
     settings.lastDocumentId = docId;
     autoSave();
     loadDocumentToEditor();
+
+    // Restore this tab's saved view mode (default to markdown)
+    const savedMode = tabViewModes[docId] || 'markdown';
+    switchEditorMode(savedMode);
+
+    renderDocumentTabs();
+}
+
+function renderDocumentTabs() {
+    const list = document.getElementById('documentTabsList');
+    if (!list) return;
+
+    // Remove tabs for documents that no longer exist
+    openTabs = openTabs.filter(id => documents.find(d => d.id === id));
+
+    list.innerHTML = openTabs.map(docId => {
+        const doc = documents.find(d => d.id === docId);
+        if (!doc) return '';
+        const isActive = docId === currentDocumentId;
+        const unsaved = hasUnsavedChanges && isActive;
+        return `
+            <div class="document-tab ${isActive ? 'active' : ''} ${unsaved ? 'unsaved' : ''}"
+                 data-doc-id="${docId}"
+                 onclick="openDocumentInEditor(${docId})"
+                 title="${doc.title}">
+                <span class="document-tab-name">${doc.title}</span>
+                <button class="document-tab-close"
+                    onclick="event.stopPropagation(); closeDocumentTab(${docId})"
+                    title="Close tab">✕</button>
+            </div>`;
+    }).join('');
+}
+
+function closeDocumentTab(docId) {
+    const idx = openTabs.indexOf(docId);
+    if (idx === -1) return;
+
+    openTabs.splice(idx, 1);
+    delete tabViewModes[docId];
+
+    // If closing the active tab, switch to the nearest tab
+    if (docId === currentDocumentId) {
+        if (openTabs.length > 0) {
+            // Prefer the tab to the left, else right
+            const newDocId = openTabs[Math.min(idx, openTabs.length - 1)];
+            openDocumentInEditor(newDocId);
+            return; // renderDocumentTabs called inside openDocumentInEditor
+        } else {
+            // No tabs left — clear editor
+            if (hasUnsavedChanges) saveDocument(false);
+            currentDocumentId = null;
+            settings.lastDocumentId = null;
+            cmEditor.setValue('');
+            document.getElementById('documentInfo').style.display = 'none';
+        }
+    }
+    renderDocumentTabs();
 }
 
 function loadDocumentToEditor() {
@@ -1363,6 +1447,7 @@ function saveDocument(showNotification = true) {
     updateWordCount();
     updateProjectsList();
     updateDocumentsList();
+    renderDocumentTabs();
 }
 
 function clearEditor() {
