@@ -192,6 +192,10 @@
                                     <h2 id="documentTitle" ondblclick="startDocumentTitleRename()" title="Double-click to rename">Document Title</h2>
                                     <button class="doc-rename-btn" onclick="startDocumentTitleRename()" title="Rename document">✏️</button>
                                 </div>
+                                <div class="document-subtitle-editable">
+                                    <p id="documentSubtitle" class="document-subtitle" ondblclick="startDocumentSubtitleEdit()" title="Double-click to add subtitle"></p>
+                                    <button class="doc-rename-btn doc-subtitle-btn" onclick="startDocumentSubtitleEdit()" title="Edit subtitle">✏️</button>
+                                </div>
                             </div>
                             <div class="document-meta">
                                 <span id="documentWordCount">0 words</span>
@@ -399,6 +403,10 @@
                     <input type="text" id="newProjectTitle" placeholder="My Novel" required>
                 </label>
                 <label>
+                    Subtitle <span style="font-weight:400; color:var(--text-tertiary);">(optional)</span>:
+                    <input type="text" id="newProjectSubtitle" placeholder="e.g. A Story of Fire and Shadow">
+                </label>
+                <label>
                     Genre:
                     <select id="newProjectGenre">
                         <option value="Fiction">Fiction</option>
@@ -438,6 +446,10 @@
                 <label>
                     Project Title:
                     <input type="text" id="editProjectTitle" placeholder="My Novel" required>
+                </label>
+                <label>
+                    Subtitle <span style="font-weight:400; color:var(--text-tertiary);">(optional)</span>:
+                    <input type="text" id="editProjectSubtitle" placeholder="e.g. A Story of Fire and Shadow">
                 </label>
                 <label>
                     Genre:
@@ -481,6 +493,10 @@
                     <input type="text" id="newDocumentTitle" placeholder="Chapter 1: The Beginning" required>
                 </label>
                 <label>
+                    Subtitle <span style="font-weight:400; color:var(--text-tertiary);">(optional)</span>:
+                    <input type="text" id="newDocumentSubtitle" placeholder="e.g. In which our hero sets out...">
+                </label>
+                <label>
                     Document Type:
                     <select id="newDocumentType">
                         <option value="Chapter">Chapter</option>
@@ -515,6 +531,10 @@
                 <label>
                     Document Title:
                     <input type="text" id="editDocumentTitle" placeholder="Chapter 1: The Beginning" required>
+                </label>
+                <label>
+                    Subtitle <span style="font-weight:400; color:var(--text-tertiary);">(optional)</span>:
+                    <input type="text" id="editDocumentSubtitle" placeholder="e.g. In which our hero sets out...">
                 </label>
                 <label>
                     Document Type:

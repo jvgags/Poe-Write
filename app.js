@@ -880,6 +880,7 @@ function createProject(event) {
     const project = {
         id: Date.now(),
         title: document.getElementById('newProjectTitle').value.trim(),
+        subtitle: document.getElementById('newProjectSubtitle') ? document.getElementById('newProjectSubtitle').value.trim() : '',
         genre: document.getElementById('newProjectGenre').value,
         description: document.getElementById('newProjectDescription').value.trim(),
         targetWordCount: parseInt(document.getElementById('newProjectWordCount').value) || 0,
@@ -1017,6 +1018,7 @@ function updateProjectsList() {
                         <div class="drag-handle" title="Drag to reorder">⋮⋮</div>
                         <div>
                             <h3>${project.title}</h3>
+                            ${project.subtitle ? `<p class="project-subtitle">${project.subtitle}</p>` : ''}
                             <span class="genre-badge">${project.genre}</span>
                         </div>
                     </div>
@@ -1132,6 +1134,7 @@ function createDocument(event) {
         id: Date.now(),
         projectId: currentProjectId,
         title: document.getElementById('newDocumentTitle').value.trim(),
+        subtitle: document.getElementById('newDocumentSubtitle') ? document.getElementById('newDocumentSubtitle').value.trim() : '',
         type: document.getElementById('newDocumentType').value,
         content: '',
         wordCount: 0,
@@ -1201,6 +1204,7 @@ function duplicateDocument(id) {
         id: Date.now(),
         projectId: doc.projectId,
         title: `${doc.title} (Copy)`,
+        subtitle: doc.subtitle || '',
         type: doc.type,
         content: doc.content,
         wordCount: doc.wordCount,
@@ -1338,6 +1342,13 @@ function loadDocumentToEditor() {
     document.getElementById('documentWordCount').textContent = `${doc.wordCount || 0} words`;
     document.getElementById('documentInfo').style.display = 'block';
     
+    // Update subtitle
+    const subtitleEl = document.getElementById('documentSubtitle');
+    if (subtitleEl) {
+        subtitleEl.textContent = doc.subtitle || '';
+        subtitleEl.classList.toggle('document-subtitle--empty', !doc.subtitle);
+    }
+    
     // Update dropdowns
     document.getElementById('projectSelect').value = doc.projectId;
     currentProjectId = doc.projectId;
@@ -1420,6 +1431,58 @@ function startDocumentTitleRename() {
     // Scroll to the start so the full name is visible from the left
     input.setSelectionRange(0, input.value.length);
     input.scrollLeft = 0;
+}
+
+function startDocumentSubtitleEdit() {
+    if (!currentDocumentId) return;
+
+    const subtitleEl = document.getElementById('documentSubtitle');
+    const editBtn = document.querySelector('.doc-subtitle-btn');
+    if (!subtitleEl || subtitleEl.tagName === 'INPUT') return; // already editing
+
+    const doc = documents.find(d => d.id === currentDocumentId);
+    if (!doc) return;
+
+    const currentSubtitle = doc.subtitle || '';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentSubtitle;
+    input.id = 'documentSubtitle';
+    input.className = 'document-subtitle-input';
+    input.placeholder = 'Add a subtitle...';
+
+    const save = () => {
+        const newSubtitle = input.value.trim();
+
+        const p = document.createElement('p');
+        p.id = 'documentSubtitle';
+        p.className = 'document-subtitle' + (newSubtitle ? '' : ' document-subtitle--empty');
+        p.title = 'Double-click to edit subtitle';
+        p.ondblclick = startDocumentSubtitleEdit;
+
+        if (newSubtitle !== currentSubtitle) {
+            doc.subtitle = newSubtitle;
+            doc.updated = new Date().toISOString();
+            autoSave();
+            showToast('Subtitle updated');
+        }
+
+        p.textContent = newSubtitle;
+        input.replaceWith(p);
+        if (editBtn) editBtn.style.display = '';
+    };
+
+    input.addEventListener('blur', save);
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        if (e.key === 'Escape') { input.value = currentSubtitle; input.blur(); }
+    });
+
+    subtitleEl.replaceWith(input);
+    if (editBtn) editBtn.style.display = 'none';
+    input.focus();
+    input.select();
 }
 
 function saveDocument(showNotification = true) {
@@ -4845,6 +4908,9 @@ function openEditProjectModal(projectId) {
     document.getElementById('editProjectGenre').value = project.genre;
     document.getElementById('editProjectDescription').value = project.description || '';
     document.getElementById('editProjectWordCount').value = project.targetWordCount || 0;
+    if (document.getElementById('editProjectSubtitle')) {
+        document.getElementById('editProjectSubtitle').value = project.subtitle || '';
+    }
     
     document.getElementById('editProjectModal').style.display = 'flex';
     document.getElementById('editProjectTitle').focus();
@@ -4867,6 +4933,7 @@ function updateProject(event) {
     }
     
     project.title = document.getElementById('editProjectTitle').value.trim();
+    project.subtitle = document.getElementById('editProjectSubtitle') ? document.getElementById('editProjectSubtitle').value.trim() : (project.subtitle || '');
     project.genre = document.getElementById('editProjectGenre').value;
     project.description = document.getElementById('editProjectDescription').value.trim();
     project.targetWordCount = parseInt(document.getElementById('editProjectWordCount').value) || 0;
@@ -4891,6 +4958,7 @@ function copyProject(projectId) {
     const newProject = {
         id: Date.now(),
         title: `${project.title} (Copy)`,
+        subtitle: project.subtitle || '',
         genre: project.genre,
         description: project.description,
         targetWordCount: project.targetWordCount,
@@ -4909,6 +4977,7 @@ function copyProject(projectId) {
             id: Date.now() + index, // Ensure unique integer ID
             projectId: newProject.id,
             title: doc.title,
+            subtitle: doc.subtitle || '',
             type: doc.type,
             content: doc.content,
             wordCount: doc.wordCount,
@@ -5319,6 +5388,9 @@ function openEditDocumentModal(docId) {
     document.getElementById('editDocumentId').value = doc.id;
     document.getElementById('editDocumentTitle').value = doc.title;
     document.getElementById('editDocumentType').value = doc.type;
+    if (document.getElementById('editDocumentSubtitle')) {
+        document.getElementById('editDocumentSubtitle').value = doc.subtitle || '';
+    }
     
     document.getElementById('editDocumentModal').style.display = 'flex';
     document.getElementById('editDocumentTitle').focus();
@@ -5343,6 +5415,7 @@ function updateDocument(event) {
     
     const newTitle = document.getElementById('editDocumentTitle').value.trim();
     const newType = document.getElementById('editDocumentType').value;
+    const newSubtitle = document.getElementById('editDocumentSubtitle') ? document.getElementById('editDocumentSubtitle').value.trim() : doc.subtitle || '';
     
     if (!newTitle) {
         showToast('Document title cannot be empty');
@@ -5350,6 +5423,7 @@ function updateDocument(event) {
     }
     
     doc.title = newTitle;
+    doc.subtitle = newSubtitle;
     doc.type = newType;
     doc.updated = new Date().toISOString();
     
@@ -5360,6 +5434,11 @@ function updateDocument(event) {
     if (currentDocumentId === docId) {
         document.getElementById('documentTitle').textContent = newTitle;
         document.getElementById('documentType').textContent = newType;
+        const subtitleEl = document.getElementById('documentSubtitle');
+        if (subtitleEl) {
+            subtitleEl.textContent = newSubtitle;
+            subtitleEl.classList.toggle('document-subtitle--empty', !newSubtitle);
+        }
     }
     
     closeEditDocumentModal();
@@ -5451,6 +5530,9 @@ function exportProjectToMarkdown() {
     // 3. Build the full Markdown text
     // Documents are stored as Markdown already — no conversion needed.
     let fullText = `# ${project.title}\n`;
+    if (project.subtitle) {
+        fullText += `## ${project.subtitle}\n`;
+    }
     if (project.description) {
         fullText += `\n*${project.description}*\n`;
     }
@@ -5458,7 +5540,11 @@ function exportProjectToMarkdown() {
 
     chapters.forEach((doc, idx) => {
         // Chapter title as a heading
-        fullText += `## ${doc.title}\n\n`;
+        fullText += `## ${doc.title}\n`;
+        if (doc.subtitle) {
+            fullText += `### ${doc.subtitle}\n`;
+        }
+        fullText += `\n`;
 
         // Content is already Markdown; strip ==highlight== markers to plain text
         let content = doc.content || '';
