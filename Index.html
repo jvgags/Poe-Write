@@ -285,6 +285,7 @@
                             <button class="tb-btn tb-icon" onclick="switchEditorMode('markdown')" title="Markdown" id="markdownToggle">✏️</button>
                             <button class="tb-btn tb-icon" onclick="switchEditorMode('preview')" title="Preview (Editable)" id="previewToggle">👁</button>
                             <button class="tb-btn tb-icon" onclick="toggleFullScreen()" title="Full Screen">⛶</button>
+                            <button class="tb-btn tb-icon" onclick="toggleDistractionFree()" title="Distraction-Free Mode (Ctrl+Shift+F)" id="distractionFreeToggle">🎯</button>
                         </div>
                         
                         <div class="toolbar-divider-sleek"></div>
@@ -1013,6 +1014,12 @@
             </div>
         </div>
     </div>
+
+    <!-- Distraction-Free Exit Button -->
+    <button id="distractionFreeExitBtn" class="distraction-free-exit-btn" onclick="toggleDistractionFree()" title="Exit Distraction-Free Mode (Esc or Ctrl+Shift+F)" style="display:none;">
+        <span class="exit-icon">✕</span>
+        <span class="exit-label">Exit Focus</span>
+    </button>
 
     <!-- Stop Button -->
     <button id="stopGenerationBtn" class="stop-generation-btn" onclick="stopGeneration()" style="display:none;">
