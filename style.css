@@ -3473,10 +3473,100 @@ body.expanded-mode .editor-layout-new {
     z-index: 2000;
     background: var(--bg-secondary);
     border: 2px solid var(--accent-primary);
-    border-radius: 12px;
-    padding: 8px;
-    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
-    animation: slideIn 0.2s ease;
+    border-radius: 14px;
+    padding: 10px;
+    box-shadow: 0 6px 28px rgba(102, 126, 234, 0.35);
+    animation: slideIn 0.18s ease;
+    min-width: 320px;
+    max-width: 420px;
+}
+
+.revise-popover {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.revise-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.revise-preset-btn {
+    padding: 4px 10px;
+    background: transparent;
+    border: 1px solid var(--accent-primary);
+    border-radius: 20px;
+    color: var(--accent-primary);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.revise-preset-btn:hover {
+    background: var(--accent-primary);
+    color: var(--text-inverse);
+}
+
+.revise-input-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.revise-inline-input {
+    flex: 1;
+    padding: 7px 12px;
+    border: 1.5px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.revise-inline-input:focus {
+    border-color: var(--accent-primary);
+}
+
+.revise-inline-input::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.7;
+}
+
+.revise-submit-btn {
+    padding: 7px 13px;
+    background: var(--accent-gradient);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+}
+
+.revise-submit-btn:hover {
+    opacity: 0.9;
+    transform: scale(1.05);
+}
+
+.revise-submit-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.revise-submit-btn.loading {
+    animation: pulse 0.8s infinite;
 }
 
 @keyframes slideIn {
@@ -3517,6 +3607,165 @@ body.expanded-mode .editor-layout-new {
 
 .context-menu-btn .btn-label {
     font-size: 13px;
+}
+
+/* ========== REVISION DIFF PANEL ========== */
+
+.revision-diff-panel {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%) translateY(100%);
+    width: min(860px, 94vw);
+    max-height: 55vh;
+    background: var(--bg-secondary);
+    border: 1.5px solid var(--border-color);
+    border-bottom: none;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -8px 40px rgba(0,0,0,0.22);
+    z-index: 2147483645;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.32s cubic-bezier(0.34, 1.1, 0.64, 1);
+    overflow: hidden;
+}
+
+.revision-diff-panel.visible {
+    transform: translateX(-50%) translateY(0);
+}
+
+.revision-diff-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-primary);
+    flex-shrink: 0;
+}
+
+.revision-diff-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: 0.3px;
+}
+
+.revision-diff-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.revision-accept-btn,
+.revision-reject-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 18px;
+    border: none;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.revision-accept-btn {
+    background: linear-gradient(135deg, #4caf50, #388e3c);
+    color: white;
+    box-shadow: 0 3px 12px rgba(76,175,80,0.35);
+}
+
+.revision-accept-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 5px 16px rgba(76,175,80,0.5);
+}
+
+.revision-reject-btn {
+    background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+    color: white;
+    box-shadow: 0 3px 12px rgba(255,107,107,0.35);
+}
+
+.revision-reject-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 5px 16px rgba(255,107,107,0.5);
+}
+
+.revision-diff-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.revision-diff-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+}
+
+.revision-diff-col-label {
+    padding: 7px 16px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+}
+
+.revision-diff-original .revision-diff-col-label {
+    color: #e57373;
+    background: rgba(229, 115, 115, 0.08);
+    border-bottom: 1px solid rgba(229, 115, 115, 0.2);
+}
+
+.revision-diff-revised .revision-diff-col-label {
+    color: #66bb6a;
+    background: rgba(102, 187, 106, 0.08);
+    border-bottom: 1px solid rgba(102, 187, 106, 0.2);
+}
+
+.revision-diff-text {
+    padding: 14px 18px;
+    font-size: 14px;
+    line-height: 1.75;
+    overflow-y: auto;
+    flex: 1;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: inherit;
+    color: var(--text-primary);
+}
+
+.revision-diff-original .revision-diff-text {
+    background: rgba(229, 115, 115, 0.05);
+}
+
+.revision-diff-revised .revision-diff-text {
+    background: rgba(102, 187, 106, 0.05);
+}
+
+.revision-diff-divider {
+    width: 1px;
+    background: var(--border-color);
+    flex-shrink: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .revision-diff-body {
+        flex-direction: column;
+    }
+    .revision-diff-divider {
+        width: 100%;
+        height: 1px;
+    }
+    .revision-diff-panel {
+        max-height: 70vh;
+    }
 }
 
 /* Responsive adjustments */

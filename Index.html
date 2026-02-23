@@ -1052,6 +1052,32 @@
         </button>
     </div>
 
+    <!-- Revision Diff Panel -->
+    <div id="revisionDiffPanel" class="revision-diff-panel" style="display:none;">
+        <div class="revision-diff-header">
+            <span class="revision-diff-title">&#9998; Review Revision</span>
+            <div class="revision-diff-actions">
+                <button class="revision-accept-btn" onclick="acceptRevision()">
+                    <span>&#10003;</span> Accept
+                </button>
+                <button class="revision-reject-btn" onclick="rejectRevision()">
+                    <span>&#10005;</span> Reject
+                </button>
+            </div>
+        </div>
+        <div class="revision-diff-body">
+            <div class="revision-diff-col revision-diff-original">
+                <div class="revision-diff-col-label">Original</div>
+                <div class="revision-diff-text" id="revisionOriginalText"></div>
+            </div>
+            <div class="revision-diff-divider"></div>
+            <div class="revision-diff-col revision-diff-revised">
+                <div class="revision-diff-col-label">Revised</div>
+                <div class="revision-diff-text" id="revisionRevisedText"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Generation Loading Overlay -->
     <div id="generationLoadingOverlay" class="generation-loading-overlay">
         <div class="loading-spinner"></div>
@@ -1082,10 +1108,22 @@
 
     <!-- Context Menu for Selected Text -->
     <div id="contextImproveMenu" class="context-improve-menu" style="display:none;">
-        <button class="context-menu-btn" onclick="improveText()">
-            <span class="btn-icon">🔄</span>
-            <span class="btn-label">Improve Selection</span>
-        </button>
+        <div class="revise-popover">
+            <div class="revise-presets">
+                <button class="revise-preset-btn" onclick="applyRevisePreset('Simplify the language')">Simplify</button>
+                <button class="revise-preset-btn" onclick="applyRevisePreset('Make it more vivid and descriptive')">More vivid</button>
+                <button class="revise-preset-btn" onclick="applyRevisePreset('Fix the tone to feel more natural')">Fix tone</button>
+                <button class="revise-preset-btn" onclick="applyRevisePreset('Make it more concise')">Concise</button>
+            </div>
+            <div class="revise-input-row">
+                <input type="text" id="reviseInlineInput" class="revise-inline-input" 
+                    placeholder="Revision instructions..." 
+                    onkeydown="handleReviseKeydown(event)" />
+                <button class="revise-submit-btn" onclick="submitInlineRevise()" title="Revise with AI">
+                    <span id="reviseSubmitIcon">✨</span>
+                </button>
+            </div>
+        </div>
     </div>
 
     <script src="app.js"></script>

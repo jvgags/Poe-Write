@@ -542,6 +542,46 @@ window.onload = async function() {
         updateFloatingContinueButton();
     });
 
+    // Selection change listener for revise popover
+    cmEditor.on('cursorActivity', function() {
+        const menu = document.getElementById('contextImproveMenu');
+        if (!menu) return;
+
+        const selection = cmEditor.getSelection();
+
+        if (selection && selection.length > 10 && !isStreaming) {
+            // Cache selection positions while they're valid
+            _reviseSelection = selection;
+            _reviseFrom = cmEditor.getCursor('from');
+            _reviseTo = cmEditor.getCursor('to');
+
+            // Measure menu width before showing
+            menu.style.visibility = 'hidden';
+            menu.style.display = 'block';
+            const menuWidth = menu.offsetWidth;
+            menu.style.visibility = '';
+
+            // Position centered above the end of the selection
+            const cursor = cmEditor.getCursor('to');
+            const coords = cmEditor.cursorCoords(cursor, 'page');
+
+            const MARGIN = 8;
+            const ABOVE_OFFSET = menu.offsetHeight + 10;
+
+            let left = coords.left - menuWidth / 2;
+            left = Math.max(MARGIN, Math.min(left, window.innerWidth - menuWidth - MARGIN));
+
+            let top = coords.top - ABOVE_OFFSET;
+            if (top < MARGIN) top = coords.bottom + 8; // flip below if near top of screen
+
+            menu.style.left = left + 'px';
+            menu.style.top = top + 'px';
+            menu.style.transform = '';
+        } else {
+            menu.style.display = 'none';
+        }
+    });
+
     // Apply font size to CodeMirror
     const editorElement = document.querySelector('.CodeMirror');
     if (editorElement) {
@@ -3897,14 +3937,8 @@ function rejectGeneratedText() {
     hasUnsavedChanges = true;
     updateWordCount();
     
-    // Multiple checks to ensure button appears
-    setTimeout(() => {
-        updateFloatingContinueButton();
-    }, 50);
-    
-    setTimeout(() => {
-        updateFloatingContinueButton();
-    }, 350);
+    setTimeout(() => updateFloatingContinueButton(), 50);
+    setTimeout(() => updateFloatingContinueButton(), 350);
 }
 
 function improveText() {
@@ -6330,43 +6364,210 @@ function toggleAiToolbar() {
 
 /* ========== CONTEXT IMPROVE MENU ========== */
 
-// Show context menu when text is selected
-if (cmEditor) {
-    cmEditor.on('cursorActivity', function() {
-        const menu = document.getElementById('contextImproveMenu');
-        const selection = cmEditor.getSelection();
-        
-        if (selection && selection.length > 10) {
-            // Text is selected - show menu
-            const cursor = cmEditor.getCursor('end');
-            const coords = cmEditor.cursorCoords(cursor, 'page');
-            const editorContainer = document.querySelector('.editor-container-new');
-            const rect = editorContainer.getBoundingClientRect();
-            
-            // Position menu above or below selection
-            const x = coords.left;
-            const y = coords.top - 50; // Above selection
-            
-            menu.style.left = x + 'px';
-            menu.style.top = y + 'px';
-            menu.style.display = 'block';
-            menu.style.transform = 'translateX(-50%)'; // Center horizontally
-        } else {
-            // No selection - hide menu
-            menu.style.display = 'none';
-        }
-    });
-}
+// Store selection range for inline revise
+let _reviseSelection = null;
+let _reviseFrom = null;
+let _reviseTo = null;
+let _revisedOriginalText = null;  // original text before revision (for reject)
+let _revisedNewText = null;       // AI revised text (for accept)
+let _revisedInsertFrom = null;    // position where revised text should be inserted
+let _revisedInsertTo = null;      // end of original selection
 
-// Hide context menu when clicking outside
-document.addEventListener('click', function(e) {
+// Hide revise popover when clicking outside it
+document.addEventListener('mousedown', function(e) {
     const menu = document.getElementById('contextImproveMenu');
+    if (!menu) return;
     if (!menu.contains(e.target) && !e.target.closest('.CodeMirror')) {
         menu.style.display = 'none';
     }
 });
 
-/* ========== TAB-SPECIFIC TOOLBAR VISIBILITY (ROBUST VERSION) ========== */
+// Apply a preset to the inline input and focus it
+function applyRevisePreset(text) {
+    const input = document.getElementById('reviseInlineInput');
+    if (input) {
+        input.value = text;
+        input.focus();
+        input.select();
+    }
+}
+
+// Handle Enter key in inline input
+function handleReviseKeydown(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        submitInlineRevise();
+    } else if (e.key === 'Escape') {
+        const menu = document.getElementById('contextImproveMenu');
+        if (menu) menu.style.display = 'none';
+    }
+}
+
+// Submit the inline revision request
+async function submitInlineRevise() {
+    if (!apiKey) {
+        showToast('Please add an API key in Settings');
+        return;
+    }
+
+    const instructions = document.getElementById('reviseInlineInput').value.trim();
+    if (!instructions) {
+        showToast('Enter revision instructions first');
+        document.getElementById('reviseInlineInput').focus();
+        return;
+    }
+
+    // Restore the selection in editor (if not already active)
+    const selectedText = _reviseSelection || cmEditor.getSelection();
+    if (!selectedText || selectedText.trim().length < 3) {
+        showToast('Selection was lost. Please select text again.');
+        document.getElementById('contextImproveMenu').style.display = 'none';
+        return;
+    }
+
+    // Restore selection in CodeMirror if we have cached positions
+    if (_reviseFrom && _reviseTo) {
+        cmEditor.setSelection(_reviseFrom, _reviseTo);
+    }
+
+    // Show loading state on button
+    const submitBtn = document.querySelector('.revise-submit-btn');
+    const submitIcon = document.getElementById('reviseSubmitIcon');
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.classList.add('loading'); }
+    if (submitIcon) submitIcon.textContent = '⏳';
+
+    // Hide the menu
+    document.getElementById('contextImproveMenu').style.display = 'none';
+
+    showLoadingOverlay();
+
+    try {
+        const model = document.getElementById('modelSelect').value;
+        const temperature = parseFloat(document.getElementById('temperature').value);
+
+        const systemPrompt = `You are a professional editor. Revise the provided text based on the user's specific instructions while maintaining the original meaning and voice. Return ONLY the revised text — no preamble, no explanation, no quotes around it.`;
+        const userPrompt = `Original text:\n${selectedText}\n\nRevision instructions: ${instructions}\n\nRevised version:`;
+
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+                'HTTP-Referer': window.location.origin,
+                'X-Title': 'Poe Write'
+            },
+            body: JSON.stringify({
+                model: model,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                temperature: temperature,
+                max_tokens: Math.max(selectedText.split(/\s+/).length * 3, 512)
+            })
+        });
+
+        hideLoadingOverlay();
+
+        if (!response.ok) throw new Error(`API error: ${response.status}`);
+
+        const data = await response.json();
+        const revisedText = data.choices[0].message.content.trim();
+
+        // Store everything needed for accept/reject — don't touch the editor yet
+        _revisedOriginalText = _reviseSelection || selectedText;
+        _revisedNewText = revisedText;
+        _revisedInsertFrom = _reviseFrom || cmEditor.getCursor('from');
+        _revisedInsertTo = _reviseTo || cmEditor.getCursor('to');
+
+        // Clear cached selection
+        _reviseSelection = null;
+        _reviseFrom = null;
+        _reviseTo = null;
+
+        // Clear the input for next use
+        const input = document.getElementById('reviseInlineInput');
+        if (input) input.value = '';
+
+        updateWordCount();
+        showRevisionDiffPanel(_revisedOriginalText, revisedText);
+
+    } catch (error) {
+        console.error('Revise error:', error);
+        hideLoadingOverlay();
+        showToast('Revision failed. Check your API key.');
+    } finally {
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.classList.remove('loading'); }
+        if (submitIcon) submitIcon.textContent = '✨';
+    }
+}
+
+/* ========== REVISION DIFF PANEL ========== */
+
+function showRevisionDiffPanel(originalText, revisedText) {
+    const panel = document.getElementById('revisionDiffPanel');
+    if (!panel) return;
+
+    document.getElementById('revisionOriginalText').textContent = originalText;
+    document.getElementById('revisionRevisedText').textContent = revisedText;
+
+    panel.style.display = 'flex';
+    requestAnimationFrame(() => {
+        panel.classList.add('visible');
+    });
+
+    // Highlight the selection in the editor so it's visible behind the panel
+    if (_revisedInsertFrom && _revisedInsertTo) {
+        cmEditor.setSelection(_revisedInsertFrom, _revisedInsertTo);
+    }
+}
+
+function hideRevisionDiffPanel() {
+    const panel = document.getElementById('revisionDiffPanel');
+    if (!panel) return;
+    panel.classList.remove('visible');
+    setTimeout(() => {
+        panel.style.display = 'none';
+    }, 320);
+}
+
+function acceptRevision() {
+    if (!_revisedNewText || !_revisedInsertFrom || !_revisedInsertTo) {
+        hideRevisionDiffPanel();
+        return;
+    }
+
+    // Now replace the original selection with the revised text
+    cmEditor.replaceRange(_revisedNewText, _revisedInsertFrom, _revisedInsertTo);
+
+    // Clear state
+    _revisedOriginalText = null;
+    _revisedNewText = null;
+    _revisedInsertFrom = null;
+    _revisedInsertTo = null;
+
+    hideRevisionDiffPanel();
+    hasUnsavedChanges = true;
+    updateWordCount();
+    saveDocument(false);
+    showToast('Revision accepted! ✨');
+    setTimeout(() => updateFloatingContinueButton(), 50);
+}
+
+function rejectRevision() {
+    // Just discard — editor is unchanged since we never touched it
+    _revisedOriginalText = null;
+    _revisedNewText = null;
+    _revisedInsertFrom = null;
+    _revisedInsertTo = null;
+
+    // Collapse selection
+    cmEditor.setCursor(cmEditor.getCursor('from'));
+
+    hideRevisionDiffPanel();
+    showToast('Revision rejected — original kept');
+    setTimeout(() => updateFloatingContinueButton(), 50);
+}
 
 function initializeFloatingToolbarVisibility() {
     const toolbar = document.getElementById('floatingAiToolbar');
