@@ -43,6 +43,7 @@ let modelsLoaded = false;
 // Open document tabs
 let openTabs = []; // array of docIds in order
 let tabViewModes = {}; // docId -> 'markdown' | 'preview'
+let tabCursorPos = {}; // docId -> { cursor: {line, ch}, scrollTop: number }
 
 let isStreaming = false;
 let streamingInterval = null;
@@ -993,6 +994,7 @@ function switchProject() {
     // 5. Refresh Data & UI
     openTabs = [];
     tabViewModes = {};
+    tabCursorPos = {};
     renderDocumentTabs();
     autoSave();
     updateDocumentsList();
@@ -1286,6 +1288,12 @@ function openDocumentInEditor(docId) {
     }
     if (currentDocumentId) {
         tabViewModes[currentDocumentId] = currentEditorMode;
+        // Save cursor position and scroll offset for this tab
+        const cmScroller = document.querySelector('.CodeMirror-scroll');
+        tabCursorPos[currentDocumentId] = {
+            cursor: cmEditor.getCursor(),
+            scrollTop: cmScroller ? cmScroller.scrollTop : 0
+        };
     }
 
     // Add to tabs if not already open
@@ -1336,6 +1344,7 @@ function closeDocumentTab(docId) {
 
     openTabs.splice(idx, 1);
     delete tabViewModes[docId];
+    delete tabCursorPos[docId];
 
     // If closing the active tab, switch to the nearest tab
     if (docId === currentDocumentId) {
@@ -1375,7 +1384,18 @@ function loadDocumentToEditor() {
     
     // Load content into editor
     cmEditor.setValue(content);
-    cmEditor.setCursor(0, 0);
+
+    // Restore saved cursor + scroll, or default to top
+    const savedPos = tabCursorPos[currentDocumentId];
+    if (savedPos) {
+        cmEditor.setCursor(savedPos.cursor);
+        requestAnimationFrame(() => {
+            const cmScroller = document.querySelector('.CodeMirror-scroll');
+            if (cmScroller) cmScroller.scrollTop = savedPos.scrollTop;
+        });
+    } else {
+        cmEditor.setCursor(0, 0);
+    }
 
     document.getElementById('documentTitle').textContent = doc.title;
     document.getElementById('documentType').textContent = doc.type;
