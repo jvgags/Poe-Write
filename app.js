@@ -4496,6 +4496,44 @@ function updateRightSidebar() {
     const aiismMarks = document.querySelectorAll('.cm-aiism');
     set('rsAiisms', aiismMarks.length > 0 ? `⚠️ ${aiismMarks.length}` : '✅ None');
 
+    // --- Project Chapter Word Count ---
+    if (project) {
+        const projectDocs = documents.filter(d => d.projectId === currentProjectId);
+        const chapterDocs = projectDocs.filter(d => d.type === 'Chapter');
+
+        // Use live word count for the current document if it's a Chapter
+        const chapterWords = chapterDocs.reduce((sum, d) => {
+            if (d.id === currentDocumentId) {
+                // Use the live editor count for the active doc
+                return sum + (content.trim() ? content.trim().split(/\s+/).length : 0);
+            }
+            return sum + (d.wordCount || 0);
+        }, 0);
+
+        set('rsProjectWords', chapterWords.toLocaleString());
+
+        const target = project.targetWordCount;
+        const targetRow = document.getElementById('rsTargetRow');
+        const progressWrap = document.getElementById('rsProgressBarWrap');
+        const progressFill = document.getElementById('rsProgressBarFill');
+        const progressLabel = document.getElementById('rsProgressLabel');
+
+        if (target && target > 0) {
+            const pct = Math.min(100, Math.round((chapterWords / target) * 100));
+            set('rsProjectTarget', Number(target).toLocaleString());
+            if (targetRow) targetRow.style.display = '';
+            if (progressWrap) progressWrap.style.display = '';
+            if (progressFill) {
+                progressFill.style.width = pct + '%';
+                progressFill.classList.toggle('complete', pct >= 100);
+            }
+            if (progressLabel) progressLabel.textContent = `${pct}% of target`;
+        } else {
+            if (targetRow) targetRow.style.display = 'none';
+            if (progressWrap) progressWrap.style.display = 'none';
+        }
+    }
+
     // --- Table of Contents ---
     const tocContainer = document.getElementById('tableOfContents');
     if (!tocContainer) return;

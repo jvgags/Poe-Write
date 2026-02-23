@@ -4322,6 +4322,32 @@ body.fullscreen-mode #main-content {
     white-space: nowrap;
 }
 
+.rs-progress-bar-track {
+    height: 6px;
+    background: var(--border-color);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.rs-progress-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--accent-gradient, linear-gradient(90deg, #667eea, #764ba2));
+    transition: width 0.4s ease;
+    max-width: 100%;
+}
+
+.rs-progress-bar-fill.complete {
+    background: linear-gradient(90deg, #4caf50, #388e3c);
+}
+
+.rs-progress-label {
+    margin-top: 5px;
+    font-size: 11px;
+    color: var(--text-tertiary);
+    text-align: right;
+}
+
 .empty-message {
     font-size: 11px;
     color: var(--text-tertiary);
