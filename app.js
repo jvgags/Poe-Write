@@ -4947,8 +4947,40 @@ function openEditProjectModal(projectId) {
         document.getElementById('editProjectSubtitle').value = project.subtitle || '';
     }
     
+    // Render per-project AI-ism toggles
+    _renderProjectAIismsToggles(project);
+    
     document.getElementById('editProjectModal').style.display = 'flex';
     document.getElementById('editProjectTitle').focus();
+}
+
+function _renderProjectAIismsToggles(project) {
+    const container = document.getElementById('projectAIismsToggles');
+    if (!container) return;
+
+    // Get the full master list (no project filter)
+    const allAIisms = getParsedAIisms(null);
+    const disabled = new Set((project.disabledAIisms || []).map(s => s.toLowerCase()));
+
+    if (allAIisms.length === 0) {
+        container.innerHTML = '<p style="color:var(--text-tertiary); font-size:13px;">No AI-isms defined in global settings.</p>';
+        return;
+    }
+
+    container.innerHTML = allAIisms.map(aiism => {
+        const isEnabled = !disabled.has(aiism.toLowerCase());
+        const safeId = 'aiism_' + aiism.replace(/[^a-zA-Z0-9]/g, '_');
+        return `
+            <label class="aiism-project-toggle" title="${isEnabled ? 'Click to disable for this project' : 'Click to enable for this project'}">
+                <input type="checkbox" id="${safeId}" data-aiism="${aiism.replace(/"/g, '&quot;')}" ${isEnabled ? 'checked' : ''}>
+                <span>${aiism}</span>
+            </label>`;
+    }).join('');
+}
+
+function _toggleAllProjectAIisms(enable) {
+    const checkboxes = document.querySelectorAll('#projectAIismsToggles input[type="checkbox"]');
+    checkboxes.forEach(cb => { cb.checked = enable; });
 }
 
 function closeEditProjectModal() {
@@ -4974,10 +5006,30 @@ function updateProject(event) {
     project.targetWordCount = parseInt(document.getElementById('editProjectWordCount').value) || 0;
     project.updated = new Date().toISOString();
     
+    // Save per-project disabled AI-isms from checkboxes
+    const allCheckboxes = document.querySelectorAll('#projectAIismsToggles input[type="checkbox"]');
+    const disabledAIisms = [];
+    allCheckboxes.forEach(cb => {
+        if (!cb.checked) {
+            disabledAIisms.push(cb.dataset.aiism);
+        }
+    });
+    project.disabledAIisms = disabledAIisms;
+    
     autoSave();
     updateProjectsList();
     updateProjectDropdown();
     closeEditProjectModal();
+    
+    // Refresh AI-ism highlights for the current document if it belongs to this project
+    if (currentProjectId === project.id) {
+        if (currentEditorMode === 'preview') {
+            updatePreview();
+        } else {
+            refreshAIismHighlights();
+        }
+    }
+    
     showToast(`Project "${project.title}" updated! ✅`);
 }
 
@@ -6567,7 +6619,8 @@ function removeHighlight() {
 let aiismMarkers = [];
 
 // Shared parser: reads settings and returns a clean array of AI-ism strings
-function getParsedAIisms() {
+// Pass a projectId to filter out items disabled for that project
+function getParsedAIisms(projectId) {
     const aiismsText = settings.aiismsList || DEFAULT_AIISMS;
     const aiisms = [];
 
@@ -6591,6 +6644,16 @@ function getParsedAIisms() {
             if (line.length > 0) aiisms.push(line);
         }
     });
+
+    // Filter out per-project disabled AI-isms
+    const pid = projectId !== undefined ? projectId : currentProjectId;
+    if (pid) {
+        const project = projects.find(p => p.id === pid);
+        if (project && Array.isArray(project.disabledAIisms) && project.disabledAIisms.length > 0) {
+            const disabled = new Set(project.disabledAIisms.map(s => s.toLowerCase()));
+            return aiisms.filter(a => !disabled.has(a.toLowerCase()));
+        }
+    }
 
     return aiisms;
 }

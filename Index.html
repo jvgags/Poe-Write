@@ -475,6 +475,19 @@
                     Target Word Count:
                     <input type="number" id="editProjectWordCount" placeholder="50000" min="0" step="1000">
                 </label>
+                <!-- AI-ism Overrides Section -->
+                <details class="aiisms-project-section">
+                    <summary>
+                        <span>⚠️ AI-ism Overrides</span>
+                        <span class="aiisms-project-hint">Disable specific AI-isms for this project</span>
+                    </summary>
+                    <div class="aiisms-project-controls">
+                        <button type="button" class="secondary-btn small-btn" onclick="_toggleAllProjectAIisms(true)">✅ Enable All</button>
+                        <button type="button" class="secondary-btn small-btn" onclick="_toggleAllProjectAIisms(false)">🚫 Disable All</button>
+                    </div>
+                    <div id="projectAIismsToggles" class="aiisms-project-grid"></div>
+                </details>
+
                 <div class="modal-buttons">
                     <button type="submit" class="primary-btn">Save Changes</button>
                     <button type="button" onclick="closeEditProjectModal()" class="secondary-btn">Cancel</button>

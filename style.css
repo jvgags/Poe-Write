@@ -4229,9 +4229,9 @@ body.distraction-free-mode .sidebar-panel {
 
 /* Center the editor with a comfortable reading width */
 body.distraction-free-mode #write-tab {
-    max-width: 850px;
+    max-width: 950px;
     width: 100%;
-    flex: 0 1 850px !important;
+    flex: 0 1 950px !important;
 }
 
 body.distraction-free-mode .editor-panel-new {
@@ -4299,7 +4299,7 @@ body.distraction-free-mode .markdown-preview {
     overflow-y: auto !important;
     padding: 40px 60px !important;
     padding-bottom: 200px !important;
-    max-width: 850px;
+    max-width: 950px;
     margin: 0 auto;
     box-sizing: border-box;
 }
@@ -4499,3 +4499,96 @@ body.distraction-free-mode .markdown-preview {
     transition: all 0.15s;
 }
 
+
+/* ========== PROJECT AI-ISMS OVERRIDES ========== */
+
+.aiisms-project-section {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    margin: 12px 0;
+    overflow: hidden;
+}
+
+.aiisms-project-section summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    cursor: pointer;
+    background: var(--bg-secondary);
+    user-select: none;
+    font-weight: 600;
+    font-size: 14px;
+    list-style: none;
+}
+
+.aiisms-project-section summary::-webkit-details-marker { display: none; }
+
+.aiisms-project-section summary::before {
+    content: '▶';
+    font-size: 10px;
+    transition: transform 0.2s;
+    color: var(--text-secondary);
+}
+
+.aiisms-project-section[open] summary::before {
+    transform: rotate(90deg);
+}
+
+.aiisms-project-hint {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text-tertiary);
+    margin-left: auto;
+}
+
+.aiisms-project-controls {
+    display: flex;
+    gap: 8px;
+    padding: 10px 14px 4px;
+}
+
+.aiisms-project-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 14px 14px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.aiism-project-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-primary);
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+
+.aiism-project-toggle:hover {
+    background: var(--bg-secondary);
+    border-color: var(--accent-primary);
+}
+
+.aiism-project-toggle input[type="checkbox"] {
+    width: 13px;
+    height: 13px;
+    margin: 0;
+    cursor: pointer;
+    accent-color: var(--accent-primary);
+}
+
+.aiism-project-toggle span {
+    color: var(--text-primary);
+}
+
+.aiism-project-toggle:has(input:not(:checked)) {
+    opacity: 0.45;
+    text-decoration: line-through;
+}
