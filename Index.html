@@ -1146,6 +1146,37 @@
     </div>
 
     <script src="app.js"></script>
+    <!-- Document Right-Click Context Menu -->
+    <div id="docContextMenu" class="context-menu" style="display:none;">
+        <button class="context-menu-item" onclick="contextMenuRenameDoc()">
+            <span class="context-menu-icon">✏️</span> Rename
+        </button>
+        <button class="context-menu-item" onclick="contextMenuDuplicateDoc()">
+            <span class="context-menu-icon">📋</span> Duplicate
+        </button>
+        <div class="context-menu-divider"></div>
+        <button class="context-menu-item context-menu-danger" onclick="contextMenuDeleteDoc()">
+            <span class="context-menu-icon">🗑️</span> Delete
+        </button>
+    </div>
+
+    <!-- Folder Right-Click Context Menu -->
+    <div id="folderContextMenu" class="context-menu" style="display:none;">
+        <button class="context-menu-item" onclick="contextMenuRenameFolder()">
+            <span class="context-menu-icon">✏️</span> Rename
+        </button>
+        <button class="context-menu-item" onclick="contextMenuNewDocInFolder()">
+            <span class="context-menu-icon">📄</span> New Document
+        </button>
+        <button class="context-menu-item" onclick="contextMenuNewSubfolder()">
+            <span class="context-menu-icon">📁</span> New Subfolder
+        </button>
+        <div class="context-menu-divider"></div>
+        <button class="context-menu-item context-menu-danger" onclick="contextMenuDeleteFolder()">
+            <span class="context-menu-icon">🗑️</span> Delete Folder
+        </button>
+    </div>
+
 </body>
 
 </html>

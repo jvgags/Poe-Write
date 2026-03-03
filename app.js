@@ -1644,9 +1644,9 @@ function renderFolderLevel(parentId, depth) {
              ondragover="handleTreeDragOver(event)"
              ondrop="handleTreeDrop(event)"
              ondragend="handleTreeDragEnd(event)"
+             oncontextmenu="showFolderContextMenu(event, ${folder.id})"
              style="padding-left: ${indent + 4}px">
             <div class="folder-row-inner">
-                <span class="drag-handle folder-drag-handle" title="Drag folder">⋮⋮</span>
                 <button class="folder-collapse-btn" onclick="toggleFolderCollapse(${folder.id})" title="${collapsed ? 'Expand' : 'Collapse'}">
                     ${collapsed ? '▶' : '▼'}
                 </button>
@@ -1654,9 +1654,6 @@ function renderFolderLevel(parentId, depth) {
                 <span class="folder-name" ondblclick="startFolderRename(${folder.id})" title="Double-click to rename">${escapeHtml(folder.name)}</span>
                 <div class="folder-actions">
                     <button class="icon-btn" onclick="event.stopPropagation(); openNewDocumentInFolder(${folder.id})" title="New document here">➕</button>
-                    <button class="icon-btn" onclick="event.stopPropagation(); openNewSubfolderModal(${folder.id})" title="New subfolder">📁</button>
-                    <button class="icon-btn" onclick="event.stopPropagation(); startFolderRename(${folder.id})" title="Rename">✏️</button>
-                    <button class="icon-btn delete-icon" onclick="event.stopPropagation(); deleteFolder(${folder.id})" title="Delete folder">🗑️</button>
                 </div>
             </div>
             <div class="folder-drop-zone ${collapsed ? 'hidden' : ''}" 
@@ -1684,24 +1681,15 @@ function renderFolderLevel(parentId, depth) {
              ondrop="handleTreeDrop(event)"
              ondragend="handleTreeDragEnd(event)"
              onclick="openDocumentInEditor(${doc.id})"
+             oncontextmenu="showDocContextMenu(event, ${doc.id})"
              style="padding-left: ${indent + 8}px; margin-left: 0;">
-            <div class="document-header">
-                <div class="drag-handle" title="Drag to reorder">⋮⋮</div>
-                <div class="document-title">
-                    <h4 title="${escapeHtml(doc.title)}"><span class="doc-type-icon">${getTypeIcon(doc.type)}</span> ${escapeHtml(doc.title)}</h4>
-                </div>
-                <div class="document-actions">
-                    <button class="icon-btn" onclick="event.stopPropagation(); duplicateDocument(${doc.id})" title="Duplicate">📋</button>
-                    <button class="icon-btn" onclick="event.stopPropagation(); openEditDocumentModal(${doc.id})" title="Edit">✏️</button>
-                    <button class="icon-btn delete-icon" onclick="event.stopPropagation(); deleteDocument(${doc.id})" title="Delete">🗑️</button>
-                </div>
-            </div>
-            <div class="document-footer">
-                <label class="toggle-container" onclick="event.stopPropagation();" title="${doc.enabled ? 'Enabled' : 'Disabled'}">
+            <div class="document-row">
+                <span class="doc-type-icon">${getTypeIcon(doc.type)}</span>
+                <span class="document-row-title" title="${escapeHtml(doc.title)}">${escapeHtml(doc.title)}</span>
+                <label class="toggle-container doc-row-toggle" onclick="event.stopPropagation();" title="${doc.enabled ? 'Enabled' : 'Disabled'}">
                     <input type="checkbox" ${doc.enabled ? 'checked' : ''} onchange="toggleDocument(${doc.id})">
                     <span class="toggle-slider"></span>
                 </label>
-                <span class="document-meta">${doc.wordCount || 0} words • ${doc.type}</span>
             </div>
         </div>`;
     });
@@ -1723,6 +1711,118 @@ function escapeHtml(str) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+}
+
+/* ========== CONTEXT MENUS ========== */
+
+let _activeContextMenu = null;
+
+function showDocContextMenu(event, docId) {
+    event.preventDefault();
+
+    const menu = document.getElementById('docContextMenu');
+    if (!menu) return;
+
+    menu.dataset.docId = docId;
+    _showContextMenu(menu, event.clientX, event.clientY);
+}
+
+function showFolderContextMenu(event, folderId) {
+    event.preventDefault();
+
+    const menu = document.getElementById('folderContextMenu');
+    if (!menu) return;
+
+    menu.dataset.folderId = folderId;
+    _showContextMenu(menu, event.clientX, event.clientY);
+}
+
+function _showContextMenu(menu, x, y) {
+    // Hide any open menu first
+    if (_activeContextMenu && _activeContextMenu !== menu) {
+        _activeContextMenu.style.display = 'none';
+        _activeContextMenu.classList.remove('visible');
+    }
+
+    _activeContextMenu = menu;
+    menu.style.display = 'block';
+
+    // Position it — clamp after render
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+
+    requestAnimationFrame(() => {
+        const rect = menu.getBoundingClientRect();
+        if (rect.right > window.innerWidth - 8)  menu.style.left = (x - rect.width)  + 'px';
+        if (rect.bottom > window.innerHeight - 8) menu.style.top  = (y - rect.height) + 'px';
+        menu.classList.add('visible');
+    });
+
+    // Add dismiss listener after a tick so the current event chain is fully done
+    setTimeout(() => {
+        function onDismiss(e) {
+            if (!menu.contains(e.target)) {
+                hideContextMenus();
+                document.removeEventListener('mousedown', onDismiss, true);
+            }
+        }
+        document.addEventListener('mousedown', onDismiss, true);
+    }, 0);
+}
+
+function hideContextMenus() {
+    document.querySelectorAll('.context-menu').forEach(m => {
+        m.classList.remove('visible');
+        m.style.display = 'none';
+    });
+    _activeContextMenu = null;
+}
+
+// Also close on Escape
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && _activeContextMenu) hideContextMenus();
+});
+
+function contextMenuRenameDoc() {
+    const docId = parseInt(document.getElementById('docContextMenu').dataset.docId);
+    hideContextMenus();
+    openEditDocumentModal(docId);
+}
+
+function contextMenuDuplicateDoc() {
+    const docId = parseInt(document.getElementById('docContextMenu').dataset.docId);
+    hideContextMenus();
+    duplicateDocument(docId);
+}
+
+function contextMenuDeleteDoc() {
+    const docId = parseInt(document.getElementById('docContextMenu').dataset.docId);
+    hideContextMenus();
+    deleteDocument(docId);
+}
+
+function contextMenuRenameFolder() {
+    const folderId = parseInt(document.getElementById('folderContextMenu').dataset.folderId);
+    hideContextMenus();
+    startFolderRename(folderId);
+}
+
+function contextMenuNewDocInFolder() {
+    const folderId = parseInt(document.getElementById('folderContextMenu').dataset.folderId);
+    hideContextMenus();
+    openNewDocumentInFolder(folderId);
+}
+
+function contextMenuNewSubfolder() {
+    const folderId = parseInt(document.getElementById('folderContextMenu').dataset.folderId);
+    hideContextMenus();
+    openNewSubfolderModal(folderId);
+}
+
+function contextMenuDeleteFolder() {
+    const folderId = parseInt(document.getElementById('folderContextMenu').dataset.folderId);
+    hideContextMenus();
+    deleteFolder(folderId);
 }
 
 /* ========== FOLDER OPERATIONS ========== */
