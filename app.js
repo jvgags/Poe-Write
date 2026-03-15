@@ -260,37 +260,14 @@ function updatePreview() {
     applyPreviewAIismHighlights();
 }
 
-// Initialize editable preview — called once after DOM ready
+// Initialize preview — called once after DOM ready
 function initEditablePreview() {
     const previewDiv = document.getElementById('preview');
     if (!previewDiv) return;
 
-    // Make it editable
-    previewDiv.contentEditable = 'true';
-    previewDiv.spellcheck = true;
-
-    let _previewSyncTimer = null;
-
-    previewDiv.addEventListener('input', () => {
-        // Ignore programmatic updates
-        if (_previewUpdating) return;
-
-        clearTimeout(_previewSyncTimer);
-        _previewSyncTimer = setTimeout(() => {
-            // Convert preview HTML → markdown and push to CodeMirror
-            const html = previewDiv.innerHTML;
-            const md = htmlToMarkdown(html);
-
-            _previewUpdating = true;
-            const scrollInfo = cmEditor.getScrollInfo();
-            cmEditor.setValue(md);
-            cmEditor.scrollTo(scrollInfo.left, scrollInfo.top);
-            hasUnsavedChanges = true;
-            updateWordCount();
-            resetAutoSaveTimer();
-            _previewUpdating = false;
-        }, 400);
-    });
+    // Preview is read-only
+    previewDiv.contentEditable = 'false';
+    previewDiv.spellcheck = false;
 
     // Escape key exits preview mode back to markdown
     previewDiv.addEventListener('keydown', (e) => {
@@ -6257,7 +6234,7 @@ function _syncAIismsToggleUI() {
 }
 
 // REPLACE with your Google Apps Script Web App URL
-const CLOUD_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzqeZfVvvhm4eE3lz0niD6wIOhKQsn74pt90GNDY9ML90kY4Kc3fQzlKRkAOJpYiH9k/exec';
+const CLOUD_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx9rLx2mPYQrg6mjTE5RGu3aw8npufWaH4k2NWIJj1EIX_bBlEWAyKqe1VYmyMsmpfh/exec';
 
 /**
  * MANUAL SAVE TO CLOUD
