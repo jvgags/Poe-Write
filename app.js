@@ -1265,11 +1265,13 @@ function openDocumentInEditor(docId) {
     }
     if (currentDocumentId) {
         tabViewModes[currentDocumentId] = currentEditorMode;
-        // Save cursor position and scroll offset for this tab
+        // Save cursor position and scroll offsets for both modes
         const cmScroller = document.querySelector('.CodeMirror-scroll');
+        const previewDiv = document.getElementById('preview');
         tabCursorPos[currentDocumentId] = {
             cursor: cmEditor.getCursor(),
-            scrollTop: cmScroller ? cmScroller.scrollTop : 0
+            scrollTop: cmScroller ? cmScroller.scrollTop : 0,
+            previewScrollTop: previewDiv ? previewDiv.scrollTop : 0
         };
     }
 
@@ -1286,6 +1288,15 @@ function openDocumentInEditor(docId) {
     // Restore this tab's saved view mode (default to markdown)
     const savedMode = tabViewModes[docId] || 'markdown';
     switchEditorMode(savedMode);
+
+    // Restore preview scroll now that the preview div is visible (if applicable)
+    const restoredPos = tabCursorPos[docId];
+    if (savedMode === 'preview' && restoredPos && restoredPos.previewScrollTop) {
+        requestAnimationFrame(() => {
+            const previewDiv = document.getElementById('preview');
+            if (previewDiv) previewDiv.scrollTop = restoredPos.previewScrollTop;
+        });
+    }
 
     renderDocumentTabs();
 }
@@ -1372,6 +1383,10 @@ function loadDocumentToEditor() {
         });
     } else {
         cmEditor.setCursor(0, 0);
+        requestAnimationFrame(() => {
+            const cmScroller = document.querySelector('.CodeMirror-scroll');
+            if (cmScroller) cmScroller.scrollTop = 0;
+        });
     }
 
     document.getElementById('documentTitle').textContent = doc.title;
