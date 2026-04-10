@@ -1122,6 +1122,24 @@ body.right-sidebar-collapsed #rightSidebarToggle:hover {
     opacity: 1;
 }
 
+.autosave-indicator {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    margin-left: 8px;
+    white-space: nowrap;
+}
+
+.autosave-indicator.visible {
+    opacity: 1;
+}
+
+.autosave-indicator.fade-out {
+    opacity: 0;
+    transition: opacity 1.5s ease;
+}
+
 .doc-rename-btn:hover {
     color: var(--accent-primary);
     background: var(--bg-hover, var(--bg-tertiary));

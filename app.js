@@ -1571,6 +1571,19 @@ function saveDocument(showNotification = true) {
     
     if (showNotification) {
         showToast('Document saved! 💾');
+    } else {
+        // Autosave — show subtle indicator instead of toast
+        const indicator = document.getElementById('autosaveIndicator');
+        if (indicator) {
+            clearTimeout(indicator._fadeTimer);
+            indicator.textContent = '✓ Autosaved';
+            indicator.classList.remove('fade-out');
+            indicator.classList.add('visible');
+            indicator._fadeTimer = setTimeout(() => {
+                indicator.classList.add('fade-out');
+                indicator.classList.remove('visible');
+            }, 2500);
+        }
     }
     
     updateWordCount();
