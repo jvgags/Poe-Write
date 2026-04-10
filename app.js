@@ -1075,6 +1075,20 @@ function updateProjectsList() {
 }
 
 function viewProjectDocuments(projectId) {
+    // If the clicked project is already open, do nothing
+    if (currentProjectId === projectId) return;
+
+    // Close the currently open project first
+    if (currentProjectId !== null) {
+        if (currentDocumentId && hasUnsavedChanges) {
+            saveDocument(false);
+        }
+        openTabs = [];
+        tabViewModes = {};
+        tabCursorPos = {};
+        renderDocumentTabs();
+    }
+
     // 1. Set the new project
     currentProjectId = projectId;
     document.getElementById('projectSelect').value = projectId;
